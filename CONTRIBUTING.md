@@ -26,9 +26,19 @@ Add meaningful tests for behavior changes. Describe manual checks and the device
 
 Keep English, Korean and Japanese user documentation and interface text consistent. Use **input notes / 입력 노트 / 入力ノーツ** for the displayed key presses and scratch movements; keep the product name **Lift Trace** unchanged. These notes show controller input, not chart data. The README and user guide should lead users to the **Windows app**, while developer commands belong in the development guide. Identify downloads by the stable filename prefix and `.zip` ending, without a fixed version number. Explain user tasks with the actual button labels, one action at a time, and the result to check. Do not assume users understand addresses, ports, servers or software development. Entering game values must precede checking input notes: default LIFT 0 has no automatic display area. Describe scratch directions as clockwise ↻ and counterclockwise ↺, viewed from above. Developer documentation is currently English.
 
+## Branches and review
+
+Use `main` for accepted work and a short-lived branch for each focused change. There is no separate `develop` branch.
+
+1. Start from the current `main`, using a branch name such as `fix/scratch-direction` or `docs/setup-guide`. Use a fork if you do not have repository write access.
+2. Make the change, run the relevant checks, and open a pull request targeting `main`. Explain what changed, what you tested and any remaining gaps.
+3. The maintainer reviews the change and its test results before merging. After merge, the working branch can be deleted.
+
+A pull request does not need its own version bump. The maintainer chooses a release version and a tested commit after changes are ready. `main` can therefore contain work newer than the latest published release. Follow [Releasing](docs/RELEASING.md) for tags, build artifacts and publication.
+
 ## Pull requests and licensing
 
-Explain the problem, the final behavior and relevant validation. Update [CHANGELOG.md](CHANGELOG.md) for user-visible changes. New public files must be included in release allowlists, and a packaging change should be checked against an extracted archive.
+Explain the problem, the final behavior and relevant validation. Add user-visible changes to an **Unreleased** section in [CHANGELOG.md](CHANGELOG.md), creating it if needed; leave published version entries intact. New public files must be included in release allowlists, and a packaging change should be checked against an extracted archive.
 
 Contributions are provided under the project's [MIT License](LICENSE). Only contribute code and assets you have the right to share. Bundled third-party runtimes retain their own licenses; preserve notices and avoid adding copyrighted game captures to public documentation.
 
