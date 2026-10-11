@@ -2,9 +2,9 @@
 
 Changes to the public overlay distribution are recorded here. Internal development iterations are included in the first public version below.
 
-## 0.1.0 — Unreleased
+## 0.1.0 — 2026-10-12
 
-Initial public prototype, prepared for its first GitHub release.
+Initial public prototype.
 
 - Ready-to-run Windows x64 app: extract and open LiftTrace.exe without installing Python or using a terminal.
 - Seven-key input notes, held-input ribbons, and scratch notes with clockwise ↻ / counterclockwise ↺ arrows and distinct light/deep coral colors.

@@ -12,10 +12,10 @@
 
 **プログラミング、Pythonのインストール、コマンド入力は不要です。**
 
-初回の公開リリースを準備しています。ReleasesにWindows ZIPがない場合、実行ファイルはまだそこからダウンロードできません。
+**[Windows版をダウンロード](https://github.com/d0vetam3r/lift-trace/releases/latest)** から最新バージョンを入手できます。
 
 1. このGitHubページの **Releases** を開き、最新バージョンの **Assets** を展開します。
-2. 名前が **`lift-trace-windows-x64-`** で始まり、**`.zip`** で終わるファイルをダウンロードします。間の数字はバージョンなので、変わることがあります。
+2. 名前が `lift-trace-windows-x64-` で始まり、`.zip` で終わるファイルをダウンロードします。間の数字はバージョンなので、変わることがあります。
 3. ダウンロードしたファイルを右クリックして **すべて展開** を選びます。展開した **LiftTrace** フォルダーの **LiftTrace.exe** をダブルクリックします。
 4. [最初から順番に進める使い方](docs/USER_GUIDE.ja.md)に沿って、ゲームの数値入力、コントローラーの設定、OBSへのアドレス貼り付けを行います。
 
@@ -25,7 +25,7 @@ OBS Studio、INFINITAS、対応コントローラーは別途必要です。展�
 
 ## 開発に参加したい
 
-リポジトリをクローンするか、Releasesの **`lift-trace-source-*.zip`** をダウンロードしてください。`*` はバージョン番号です。Windowsアプリも同じソースから作成します。
+リポジトリをクローンするか、Releasesの `lift-trace-source-*.zip` をダウンロードしてください。`*` はバージョン番号です。Windowsアプリも同じソースから作成します。
 
 [開発ガイド](docs/DEVELOPMENT.md) · [貢献ガイド](CONTRIBUTING.md) · [技術リファレンス](docs/REFERENCE.md) · [検証状況](docs/VALIDATION.md) · [リリース手順](docs/RELEASING.md)
 

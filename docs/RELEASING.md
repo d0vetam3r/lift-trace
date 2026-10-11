@@ -64,5 +64,5 @@ For publication, choose the tested source revision, create its version tag and d
 
 State the tested environments, known limitations and signing status in the release notes. Link to the validation record and keep any uncompleted checks marked as pending. The current app is an **unsigned prototype**; do not describe it as signed or ask users to disable Windows/antivirus protections. Do not treat a checksum alone as proof of publisher identity. If signing is added later, sign before generating final archive hashes and update the documentation.
 
-Review the draft's files, links and notes, then publish. On the first publication, replace the README's preparation notice with the release link in all three languages. Never upload only GitHub's automatically generated source archives as the user installation route.
+Review the draft's files, links and notes, then publish. Keep the download links in all three READMEs pointed at the latest release. Never upload only GitHub's automatically generated source archives as the user installation route.
 

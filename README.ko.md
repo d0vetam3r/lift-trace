@@ -12,10 +12,10 @@
 
 **프로그래밍, Python 설치, 명령어 입력이 필요하지 않습니다.**
 
-첫 공개 버전을 준비하고 있습니다. 아직 Releases에 Windows ZIP이 없다면, 그곳에서 실행 파일을 받을 수 없는 상태입니다.
+**[Windows 앱 다운로드](https://github.com/d0vetam3r/lift-trace/releases/latest)**에서 최신 버전을 받으세요.
 
 1. 이 GitHub 페이지에서 **Releases**를 열고 최신 버전의 **Assets**를 펼칩니다.
-2. 이름이 **`lift-trace-windows-x64-`**로 시작하고 **`.zip`**으로 끝나는 파일을 받습니다. 중간 숫자는 버전이므로 달라질 수 있습니다.
+2. 이름이 `lift-trace-windows-x64-`로 시작하고 `.zip`으로 끝나는 파일을 받습니다. 중간 숫자는 버전이므로 달라질 수 있습니다.
 3. 받은 파일을 오른쪽 클릭하고 **압축 풀기**를 누릅니다. 압축을 푼 **LiftTrace** 폴더에서 **LiftTrace.exe**를 더블클릭합니다.
 4. [처음부터 따라 하는 사용 안내](docs/USER_GUIDE.ko.md)를 보고 게임 수치 입력, 컨트롤러 설정, OBS에 주소 붙여넣기를 진행합니다.
 
@@ -25,7 +25,7 @@ OBS Studio, INFINITAS, 호환 컨트롤러는 별도로 필요합니다. 압축�
 
 ## 소스코드에 기여하고 싶어요
 
-저장소를 복제하거나 Releases의 **`lift-trace-source-*.zip`**을 받으세요. `*`는 버전 번호입니다. Windows 앱도 같은 소스코드로 만듭니다.
+저장소를 복제하거나 Releases의 `lift-trace-source-*.zip`을 받으세요. `*`는 버전 번호입니다. Windows 앱도 같은 소스코드로 만듭니다.
 
 [개발 가이드](docs/DEVELOPMENT.md) · [기여 안내](CONTRIBUTING.md) · [기술 참고](docs/REFERENCE.md) · [검증 현황](docs/VALIDATION.md) · [릴리스 안내](docs/RELEASING.md)
 

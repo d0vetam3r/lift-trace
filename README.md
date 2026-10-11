@@ -12,10 +12,10 @@ AI tools have been used extensively to develop the code and documentation. This 
 
 **No programming, Python installation or command typing is needed.**
 
-The first public release is being prepared. If there is no Windows ZIP under Releases yet, the packaged app is not available to download there.
+**[Download the Windows app](https://github.com/d0vetam3r/lift-trace/releases/latest)** from the latest release.
 
 1. On this GitHub page, open **Releases**, then the latest version's **Assets**.
-2. Download the file whose name starts with **`lift-trace-windows-x64-`** and ends with **`.zip`**. The numbers in between are the version and may change.
+2. Download the file whose name starts with `lift-trace-windows-x64-` and ends with `.zip`. The numbers in between are the version and may change.
 3. Right-click the downloaded file → **Extract All**. Open the extracted **LiftTrace** folder and double-click **LiftTrace.exe**.
 4. Follow the [step-by-step user guide](docs/USER_GUIDE.en.md): enter the game's numbers, set up the controller, then copy the address into OBS.
 
@@ -25,7 +25,7 @@ You need OBS Studio, INFINITAS and a compatible controller separately. Keep the 
 
 ## I want to contribute
 
-Clone this repository or download the **`lift-trace-source-*.zip`** asset from Releases (`*` is the version number). The Windows app is built from the same source.
+Clone this repository or download the `lift-trace-source-*.zip` asset from Releases (`*` is the version number). The Windows app is built from the same source.
 
 [Development](docs/DEVELOPMENT.md) · [Contributing](CONTRIBUTING.md) · [Technical reference](docs/REFERENCE.md) · [Validation](docs/VALIDATION.md) · [Releasing](docs/RELEASING.md)
 

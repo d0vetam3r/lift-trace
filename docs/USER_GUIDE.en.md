@@ -10,7 +10,7 @@ Have a Windows 10/11 (64-bit) PC and controller ready. OBS Studio and INFINITAS 
 
 1. On the project's GitHub page, click **Releases**, usually on the right.
 2. Open the latest version and click **Assets** to see the files you can download.
-3. Download the file whose name starts with **`lift-trace-windows-x64-`** and ends with **`.zip`**. The numbers in between are the version and may change. Do not choose “Source code” or a file with “source” in its name.
+3. Download the file whose name starts with `lift-trace-windows-x64-` and ends with `.zip`. The numbers in between are the version and may change. Do not choose “Source code” or a file with “source” in its name.
 4. Right-click the downloaded file and choose **Extract All**. Choose a folder such as **Documents**, then click **Extract**.
 5. Open the new folder, then the **LiftTrace** folder inside it. Double-click **LiftTrace.exe**. Windows may display its name as just **LiftTrace**.
 

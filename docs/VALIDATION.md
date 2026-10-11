@@ -2,7 +2,7 @@
 
 [Home](../README.md) · [User guide](USER_GUIDE.en.md) · [Development](DEVELOPMENT.md) · [Contributing](../CONTRIBUTING.md)
 
-This record describes the **0.1.0 development version**, not a released or certified product. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised.
+This record describes the **0.1.0 prototype**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
 
 ## Runtime provenance checked
 
