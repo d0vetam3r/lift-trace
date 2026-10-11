@@ -1,0 +1,25 @@
+{
+  "period": 7200,
+  "notes": [
+    {"lane": 1, "start": 700, "duration": 65},
+    {"lane": 3, "start": 950, "duration": 65},
+    {"lane": 5, "start": 1200, "duration": 65},
+    {"lane": 7, "start": 1450, "duration": 65},
+    {"lane": 0, "start": 850, "duration": 100, "direction": 1},
+    {"lane": 0, "start": 1200, "duration": 100, "direction": -1},
+    {"lane": 2, "start": 2000, "duration": 80},
+    {"lane": 4, "start": 2000, "duration": 80},
+    {"lane": 6, "start": 2000, "duration": 80},
+    {"lane": 3, "start": 2500, "duration": 1800},
+    {"lane": 5, "start": 2800, "duration": 1200},
+    {"lane": 0, "start": 2600, "duration": 1900, "direction": 1},
+    {"lane": 0, "start": 4500, "duration": 160, "direction": -1},
+    {"lane": 1, "start": 5100, "duration": 65},
+    {"lane": 2, "start": 5210, "duration": 65},
+    {"lane": 3, "start": 5320, "duration": 65},
+    {"lane": 4, "start": 5430, "duration": 65},
+    {"lane": 5, "start": 5540, "duration": 65},
+    {"lane": 6, "start": 5650, "duration": 65},
+    {"lane": 7, "start": 5760, "duration": 65}
+  ]
+}

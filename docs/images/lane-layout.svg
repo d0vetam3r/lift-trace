@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="620" viewBox="0 0 920 620" role="img" aria-labelledby="title desc">
+  <title id="title">Lift Trace lane layout</title>
+  <desc id="desc">A: SUDDEN upper cover. B: visible game lane. C: judgment line. D: LIFT area with input notes. Example values are green number 300, SUDDEN 300 and LIFT 200.</desc>
+  <rect width="920" height="620" rx="20" fill="#f5f7fa"/>
+  <g font-family="Arial, sans-serif">
+    <text x="38" y="40" font-size="22" font-weight="700" fill="#152536">LANE LAYOUT</text>
+    <text x="555" y="39" font-size="14" fill="#455569">SCHEMATIC · EXAMPLE VALUES</text>
+    <rect x="40" y="68" width="390" height="505" rx="8" fill="#101725" stroke="#607084" stroke-width="2"/>
+    <path d="M125 68V573 M171 68V573 M212 68V573 M258 68V573 M299 68V573 M345 68V573 M386 68V573" stroke="#445368"/>
+    <rect x="41" y="69" width="388" height="142" rx="7" fill="#29364a"/>
+    <text x="236" y="130" text-anchor="middle" fill="#fff" font-size="21">SUDDEN+</text>
+    <text x="236" y="165" text-anchor="middle" fill="#fff" font-size="28" font-weight="700">300</text>
+    <rect x="180" y="255" width="29" height="7" fill="#74b8ff"/>
+    <rect x="302" y="297" width="39" height="7" fill="#e9edf4"/>
+    <rect x="127" y="357" width="40" height="7" fill="#e9edf4"/>
+    <path d="M398 236V384 M391 376L398 387 405 376" stroke="#92a5bb" stroke-width="2" fill="none"/>
+    <rect x="41" y="425" width="388" height="147" fill="#061f28"/>
+    <rect x="127" y="426" width="40" height="84" fill="#56dccc" opacity=".48"/>
+    <rect x="302" y="470" width="39" height="8" fill="#84eff0"/>
+    <path d="M40 424H430" stroke="#ed5767" stroke-width="5"/>
+    <text x="236" y="548" text-anchor="middle" fill="#b8f4ee" font-size="19">LIFT 200</text>
+    <g fill="#152536" font-size="19" font-weight="700">
+      <text x="472" y="124">A</text><text x="508" y="124">Upper cover</text>
+      <text x="472" y="280">B</text><text x="508" y="280">Game notes</text>
+      <text x="472" y="431">C</text><text x="508" y="431">Judgment line</text>
+      <text x="472" y="500">D</text><text x="508" y="500">Input overlay</text>
+    </g>
+    <g fill="#455569" font-size="17">
+      <text x="508" y="151">SUDDEN+ value</text>
+      <text x="508" y="309">Green number / NOTES TIME</text>
+      <text x="508" y="343" fill="#167b32" font-size="28" font-weight="700">300</text>
+      <text x="508" y="373">Visible time, not cover height</text>
+      <text x="508" y="457">Align the overlay's top edge here.</text>
+      <text x="508" y="527">Inside the lower LIFT cover</text>
+      <text x="508" y="554">Input notes fall after you play.</text>
+    </g>
+    <path d="M430 118H459 M430 274H459 M430 424H459 M430 494H459" stroke="#8491a1" stroke-width="2"/>
+    <text x="40" y="602" font-size="14" fill="#455569">Original diagram · Not a game screenshot · Drawn heights are illustrative</text>
+  </g>
+</svg>
+

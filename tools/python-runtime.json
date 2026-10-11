@@ -1,0 +1,17 @@
+{
+  "version": "3.13.16",
+  "architecture": "amd64",
+  "releasePage": "https://www.python.org/downloads/release/python-31316/",
+  "archive": {
+    "url": "https://www.python.org/ftp/python/3.13.16/python-3.13.16-amd64.zip",
+    "sha256": "bbf675bb5e763c1efbb09a3a461b259d81598a63c30c4b0d7ea11b9f063df159"
+  },
+  "sbom": {
+    "url": "https://www.python.org/ftp/python/3.13.16/python-3.13.16-amd64.zip.spdx.json",
+    "sha256": "0f7065782ff351a58ada79983ba1b3d9ac32bcd5e4188227672a0d90a0a64e94"
+  },
+  "manifest": {
+    "url": "https://www.python.org/ftp/python/3.13.16/windows-3.13.16.json",
+    "sha256": "e95d3e68177b2c459f3b6415245dae02357018d9b0c8de85fd0c877996688c09"
+  }
+}

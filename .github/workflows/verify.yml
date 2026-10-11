@@ -1,0 +1,69 @@
+name: Verify and build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.13']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Python tests
+        run: python -m unittest discover -s tests -p "test_*.py"
+      - name: JavaScript tests
+        run: npm test
+      - name: Source archive
+        run: python tools/build_release.py
+
+  windows-app:
+    if: github.event_name == 'workflow_dispatch'
+    needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Prepare pinned official runtime
+        run: python tools/prepare_runtime.py
+      - name: Install build tools
+        run: |
+          .\artifacts\python-runtime\python\python.exe -m venv .venv-build
+          .\.venv-build\Scripts\python.exe -m pip install -r requirements-build.txt
+      - name: Source archive
+        run: python tools/build_release.py
+      - name: Windows application
+        run: .\.venv-build\Scripts\python.exe tools/build_windows.py --require-verified-runtime
+      - name: Verify packaged application
+        run: python tools/smoke_windows.py
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lift-trace-release-files
+          if-no-files-found: error
+          path: |
+            artifacts/lift-trace-source-*.zip
+            artifacts/lift-trace-windows-x64-*.zip
+            artifacts/*.zip.sha256
+            artifacts/SHA256SUMS

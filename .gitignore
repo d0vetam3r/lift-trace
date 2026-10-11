@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+data/
+.venv/
+.venv-build/
+build/
+dist/
+node_modules/
+artifacts/
+*.log

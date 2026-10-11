@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="title">INFINITAS Input Overlay</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" data-i18n-aria-label="home" aria-label="Lift Trace home"><span class="brand-mark">Ⅲ</span> LIFT TRACE <span class="version">0.1.0</span></a>
+    <div class="topbar-tools"><span id="connection" class="connection">Connecting</span><label class="language-label"><span data-i18n="language">Language</span><select id="language" data-i18n-aria-label="language" aria-label="Language"><option value="ko" lang="ko">한국어</option><option value="ja" lang="ja">日本語</option><option value="en" lang="en">English</option></select></label></div>
+  </header>
+  <main>
+    <div class="intro"><div><h1 data-i18n="title">INFINITAS Input Overlay</h1></div><button id="obs-help" class="secondary"><span data-i18n="obsHelp">OBS setup</span> <span aria-hidden="true">↗</span></button></div>
+    <section class="first-steps" data-i18n-aria-label="firstSteps" aria-label="First setup"><strong data-i18n="firstSteps">First setup</strong><ol><li><a href="#game-settings" data-i18n="firstSpeed">Enter your game's green number, LIFT, and SUDDEN+.</a></li><li><a href="#input-settings" data-i18n="firstInput">Choose Controller as the input source, select your device, then use Controller setup.</a></li><li><button id="first-obs-help" class="quiet" data-i18n="firstObs">Connect the overlay to OBS.</button></li></ol></section>
+    <div class="workspace">
+      <section class="preview-panel" data-i18n-aria-label="previewLabel" aria-label="Input overlay preview">
+        <div class="panel-head"><div><span class="live-dot"></span><strong id="preview-mode">Demo preview</strong><span class="small muted" data-i18n="previewDisclaimer"> / simulated game view</span></div><span id="speed-value" class="mono">— px/s</span></div>
+        <p id="preview-zero-lift" class="inline-notice" data-i18n="zeroLiftHelp" hidden>With LIFT set to 0 there is no space below the judgment line. Enable LIFT in the game and enter its value, or set the height manually.</p>
+        <div class="stage-wrap">
+          <div class="stage-labels"><span>GAME <small data-i18n="sampleChart">Sample notes</small></span><span>LIFT <small data-i18n="inputOverlay">Input overlay</small></span></div>
+          <canvas id="preview" width="400" height="560" data-i18n-aria-label="previewCanvas" aria-label="Sample game notes above the judgment line and live or demo input notes below it" data-i18n="previewFallback">Preview of input notes falling below the judgment line.</canvas>
+          <div class="stage-side"><span>↓</span><small data-i18n="continuation">Inputs continue&#10;at the same speed</small></div>
+        </div>
+        <div class="playback"><button id="demo-toggle" class="primary">Play demo</button><span id="demo-status" class="small muted" aria-live="polite">Tap · hold · scratch · reversal</span><button id="clear" class="quiet" data-i18n="clear">Clear input notes</button></div>
+        <div class="keybed" id="keybed" data-i18n-aria-label="testKeysLabel" aria-label="On-screen test keys">
+          <div id="scratch-tests" class="scratch-tests"><button data-lane="0" data-direction="1" class="scratch clockwise" data-i18n-aria-label="scratchPress" aria-label="Hold clockwise scratch">↻ <small>Shift</small></button><button data-lane="0" data-direction="-1" class="scratch counterclockwise" data-i18n-aria-label="scratchPressCounterclockwise" aria-label="Hold counterclockwise scratch">↺ <small>Ctrl</small></button></div>
+          <button data-lane="1">1 <small>Z</small></button><button data-lane="2" class="black">2 <small>S</small></button><button data-lane="3">3 <small>X</small></button><button data-lane="4" class="black">4 <small>D</small></button><button data-lane="5">5 <small>C</small></button><button data-lane="6" class="black">6 <small>F</small></button><button data-lane="7">7 <small>V</small></button>
+        </div>
+        <div class="scratch-legend" data-i18n-aria-label="scratchLegend" aria-label="Scratch directions, viewed from above"><span class="scratch-clockwise" data-i18n="scratchClockwise">↻ Clockwise · light coral</span><span class="scratch-counterclockwise" data-i18n="scratchCounterclockwise">↺ Counterclockwise · deep coral</span></div>
+        <p class="key-hint" data-i18n="keyHint">Test: Z S X D C F V · Shift: clockwise ↻ · Ctrl: counterclockwise ↺. Hold a key to draw a longer input note.</p>
+      </section>
+      <aside class="settings-panel" data-i18n-aria-label="settingsLabel" aria-label="Overlay settings">
+        <section class="setting-section" id="input-settings"><div class="section-title"><h2 data-i18n="inputHeading">Input</h2><span class="section-index">01</span></div>
+          <label><span data-i18n="inputSource">Input source</span><select id="input-mode"><option value="demo" data-i18n="inputDemo">Demo / keyboard test</option><option value="native" data-i18n="inputNative">Controller · Windows background input</option></select></label>
+          <div id="native-controls" hidden><div class="device-row"><label><span data-i18n="controller">Controller</span><select id="device"><option value="" data-i18n="selectDevice">Select a device</option></select></label><button id="rescan" class="secondary compact" data-i18n-aria-label="rescanLabel" aria-label="Scan for controllers again" data-i18n="rescan">Scan</button></div><p id="device-status" class="field-help">Looking for devices.</p><button id="controller-setup" class="primary wide" data-i18n="controllerSetup" disabled>Controller setup</button><p class="field-help" data-i18n="setupHelp">Follow the prompts to assign each key and the turntable. You do not need to know button numbers.</p><div id="raw-input" class="raw-input mono">BUTTONS — / AXIS —</div></div>
+          <div class="two-fields"><label><span data-i18n="side">Player side</span><select id="side"><option value="1P" data-i18n="side1P">1P · scratch on left</option><option value="2P" data-i18n="side2P">2P · scratch on right</option></select></label><label><span data-i18n="delay">Display delay</span> <span class="unit">ms</span><input id="delayMs" type="number" min="0" max="2000" step="1"></label></div>
+          <p class="field-help" data-i18n="delayHelp">Increase this if the input overlay appears before the game capture.</p>
+        </section>
+        <section class="setting-section" id="game-settings"><div class="section-title"><h2 data-i18n="speedHeading">Game speed</h2><span class="section-index">02</span></div>
+          <p class="screen-reference" data-i18n="fullscreen">1920 × 1080 · fullscreen game</p>
+          <div class="green-field"><label for="greenNumber"><span data-i18n="greenNumber">Green number</span> <span class="unit">GREEN NUMBER</span></label><input id="greenNumber" type="number" min="50" max="2000" step="1"></div>
+          <div class="two-fields"><label><span data-i18n="lift">LIFT</span> <span class="unit" data-i18n="gameValue">in-game value</span><input id="liftNumber" type="number" min="0" max="999" step="1"></label><label><span data-i18n="sudden">SUDDEN+</span> <span class="unit" data-i18n="gameValue">in-game value</span><input id="suddenNumber" type="number" min="0" max="999" step="1"></label></div>
+          <p class="field-help" data-i18n="speedHelp">Enter the values shown in the game. Use 0 for disabled options. LIFT + SUDDEN+ must be less than 1000.</p>
+          <div id="speed-detail" class="calculation mono" aria-live="polite"></div>
+          <label><span data-i18n="speedScale">Speed correction</span> <span class="unit" data-i18n="multiplier">×</span><input id="speedScale" type="number" min="0.25" max="4" step="0.01"></label>
+          <p class="field-help" data-i18n="speedApproximation">Uses a 1080p lane reference and an approximate green-number conversion. Adjust the speed correction if it differs from the game.</p>
+        </section>
+        <section class="setting-section"><div class="section-title"><h2 data-i18n="areaHeading">Overlay area</h2><span class="section-index">03</span></div>
+          <label><span data-i18n="heightMode">Height setting</span><select id="heightMode"><option value="auto" data-i18n="heightAuto">Match LIFT automatically (recommended)</option><option value="manual" data-i18n="heightManual">Set manually</option></select></label>
+          <div class="two-fields"><label><span data-i18n="overlayHeight">Overlay height</span> <span class="unit">px</span><input id="overlayHeight" type="number" min="40" max="2160" step="1"></label><label><span data-i18n="width">Total lane width</span> <span class="unit">px</span><input id="width" type="number" min="160" max="3840" step="1"></label></div>
+          <p id="height-explanation" class="field-help" aria-live="polite"></p>
+          <p id="zero-lift-help" class="inline-notice" data-i18n="zeroLiftHelp" hidden>With LIFT set to 0 there is no space below the judgment line. Enable LIFT in the game and enter its value, or set the height manually.</p>
+          <p class="field-help" data-i18n="heightHelp">Changing height changes only the visible area, not the note speed.</p>
+          <p class="field-help" data-i18n="heightObsHelp">After the height changes here, update Height in the OBS browser source properties too. OBS is not resized automatically.</p>
+          <button id="fullscreen-preset" class="secondary wide" data-i18n="fullscreenPreset">Match 1080p lane size</button>
+          <p class="field-help" data-i18n="fullscreenPresetHelp">Sets the lane width and key proportions to the fullscreen reference and clears position adjustments. Your game values, height setting, and controller setup stay as they are.</p>
+          <details class="position-adjustments"><summary data-i18n="positionAdjustment">Fine-tune the OBS position</summary>
+            <div class="two-fields"><label><span data-i18n="obsOffsetX">Move left / right</span> <span class="unit">px</span><input id="obsOffsetX" type="number" min="-3840" max="3840" step="1"></label><label><span data-i18n="obsOffsetY">Move up / down</span> <span class="unit">px</span><input id="obsOffsetY" type="number" min="-2160" max="2160" step="1"></label></div>
+            <p class="field-help" data-i18n="positionAdjustmentHelp">Start with both at 0. Positive numbers move right or down; negative numbers move left or up. Then copy the updated position below into OBS.</p>
+          </details>
+        </section>
+        <details class="setting-section"><summary><span data-i18n="mappingHeading">Controller mapping and appearance</span> <span aria-hidden="true">＋</span></summary>
+          <label><span data-i18n="buttonMap">Button numbers for keys 1–7</span> <span class="unit" data-i18n="zeroBased">starting at 0</span><input id="buttonMap" type="text" inputmode="numeric" placeholder="0,1,2,3,4,5,6"></label>
+          <div class="two-fields"><label><span data-i18n="scratchAxis">Scratch axis</span><select id="axisIndex"><option value="0">X (0)</option><option value="1">Y (1)</option><option value="2">Z (2)</option><option value="3">R (3)</option><option value="4">U (4)</option><option value="5">V (5)</option></select></label><label><span data-i18n="scratchThreshold">Rotation threshold</span><input id="scratchThreshold" type="number" min="0.001" max="0.5" step="0.001"></label></div>
+          <label class="check"><input id="scratchInvert" type="checkbox"> <span data-i18n="scratchInvert">Reverse scratch directions</span></label><p class="field-help" data-i18n="scratchInvertHelp">Controller setup sets this automatically. If the shown direction is opposite to your turn, change this setting or run setup again.</p>
+          <div class="two-fields"><label><span data-i18n="scratchStop">Rotation stop timeout</span> <span class="unit">ms</span><input id="scratchStopMs" type="number" min="20" max="1000" step="10"></label><label><span data-i18n="scratchWidth">Scratch lane width</span> <span class="unit" data-i18n="relativeWhite">relative to white key</span><input id="scratchWidth" type="number" min="0.5" max="4" step="0.01"></label></div>
+          <label><span data-i18n="blackWidth">Black key width</span> <span class="unit" data-i18n="relativeWhite">relative to white key</span><input id="blackKeyRatio" type="number" min="0.25" max="2" step="0.01"></label>
+          <div class="two-fields"><label><span data-i18n="noteHeight">Note thickness</span> <span class="unit">px</span><input id="noteHeight" type="number" min="2" max="30" step="1"></label><label><span data-i18n="trailOpacity">Input note body opacity</span><input id="trailOpacity" type="number" min="0" max="1" step="0.05"></label></div>
+          <label><span data-i18n="background">Output background</span><select id="background"><option value="black" data-i18n="black">Black</option><option value="transparent" data-i18n="transparent">Transparent</option></select></label>
+          <label class="check"><input id="showGuides" type="checkbox"> <span data-i18n="showGuides">Show thin lane guides in OBS</span></label>
+        </details>
+        <section class="setting-section export-section"><div class="section-title"><h2 data-i18n="outputHeading">OBS output</h2><span class="section-index">04</span></div>
+          <p class="field-help" data-i18n="browserSize">Size: enter in the OBS browser source properties</p>
+          <div class="obs-dimensions"><div><span data-i18n="obsWidth">Width</span><strong id="output-width">—</strong><button id="copy-width" class="secondary" data-i18n="copyWidth">Copy width</button></div><div><span data-i18n="obsHeight">Height</span><strong id="output-height">—</strong><button id="copy-height" class="secondary" data-i18n="copyHeight">Copy height</button></div></div>
+          <p class="field-help" data-i18n="obsPositionHeading">Recommended position: enter in OBS Edit Transform</p>
+          <div class="obs-dimensions"><div><span data-i18n="obsX">Horizontal position (X)</span><strong id="output-x">—</strong><button id="copy-x" class="secondary" data-i18n="copyX">Copy horizontal position</button></div><div><span data-i18n="obsY">Vertical position (Y)</span><strong id="output-y">—</strong><button id="copy-y" class="secondary" data-i18n="copyY">Copy vertical position</button></div></div>
+          <p class="field-help" data-i18n="placementHelp">Calculated from your player side and LIFT for a game filling a 1920 × 1080 canvas. If your game layout differs, use the position adjustments above.</p>
+          <p class="field-help" data-i18n="obsPlacementUpdate">The size and position already set in OBS do not change automatically. Copy changed values into OBS again.</p>
+          <button id="copy-url" class="primary wide" data-i18n="copyUrl">Copy address for OBS</button><div class="export-actions"><a id="overlay-link" href="/overlay.html" target="_blank" rel="noopener" data-i18n="openOverlay">Open overlay ↗</a><button id="export" class="quiet" data-i18n="exportSettings">Export settings</button><label class="import-label"><span data-i18n="importSettings">Import</span><input id="import" type="file" accept="application/json,.json" hidden></label></div><p id="save-status" class="field-help" aria-live="polite">Settings are saved automatically on this computer.</p>
+        </section>
+      </aside>
+    </div>
+    <footer><span>LIFT TRACE <span class="muted" data-i18n="independent">/ independent input overlay prototype</span></span><span class="muted" data-i18n="noGameRead">Does not read game charts, judgments, or memory.</span></footer>
+  </main>
+  <dialog id="setup-dialog" aria-labelledby="setup-heading"><h2 id="setup-heading" data-i18n="controllerSetup">Controller setup</h2><p class="field-help" data-i18n="setupDraftHelp">Settings change only when you click Apply. Keep this page open while following the prompts.</p><p id="setup-progress" class="eyebrow"></p><p id="setup-instruction" class="setup-instruction" role="status" aria-live="polite"></p><p id="setup-error" class="setup-error" role="alert" hidden></p><div id="setup-axis-choices" class="setup-actions"></div><p id="setup-review" class="raw-input" hidden></p><p class="field-help" data-i18n="setupFallback">If the turntable is not detected, cancel and check your controller's PC/joystick mode. Manual button and axis settings are available under Controller mapping and appearance.</p><div class="setup-actions"><button id="setup-check" type="button" class="primary" >Check clockwise</button><button id="setup-apply" type="button" class="primary" data-i18n="setupApply" hidden>Apply</button><button id="setup-retry-scratch" type="button" class="secondary" data-i18n="setupRetryScratch" hidden>Try turntable again</button><button id="setup-restart" type="button" class="quiet" data-i18n="setupRestart">Start again</button><button id="setup-cancel" type="button" class="quiet" data-i18n="setupCancel">Cancel</button></div></dialog>
+  <dialog id="obs-dialog" aria-labelledby="obs-heading">
+    <form method="dialog"><button class="dialog-close quiet" data-i18n-aria-label="close" aria-label="Close"><span data-i18n="close">Close</span> ✕</button></form><p class="eyebrow" data-i18n="obsHelp">OBS setup</p><h2 id="obs-heading" data-i18n="obsDialogHeading">Place the overlay in the LIFT area.</h2>
+    <ol><li data-i18n="obsStep1">Choose 1P or 2P, enter your game's green number, LIFT, and SUDDEN+, then click Match 1080p lane size.</li><li data-i18n="obsStep2">In OBS, click + under Sources, choose Browser, give it a name, and click OK.</li><li data-i18n="obsStep3">Click Copy address for OBS below. Paste it into the field named URL in OBS. Leave Local file unchecked.</li><li data-i18n="obsStep4">Enter the Width and Height shown below, then click OK.</li><li data-i18n="obsStep5">Fit the game to the full 1920 × 1080 canvas. Right-click the overlay source, choose Transform → Reset Transform, then Transform → Edit Transform.</li><li data-i18n="obsStep6">Copy the horizontal position below into Position X and the vertical position into Position Y. Set Alignment to Top Left and Bounds Type to Automatic (No bounds in older OBS versions). After Reset Transform, leave Size unchanged to keep 100% scale.</li><li data-i18n="obsPlacementUpdate">The size and position already set in OBS do not change automatically. Copy changed values into OBS again.</li></ol>
+    <p id="dialog-zero-lift" class="inline-notice" data-i18n="zeroLiftHelp" hidden>Enable LIFT or set the height manually to show input notes.</p>
+    <p class="field-help" data-i18n="browserSize">Size: enter in the OBS browser source properties</p>
+    <div class="obs-dimensions"><div><span data-i18n="obsWidth">Width</span><strong id="dialog-width">—</strong><button id="dialog-copy-width" class="secondary" data-i18n="copyWidth">Copy width</button></div><div><span data-i18n="obsHeight">Height</span><strong id="dialog-height">—</strong><button id="dialog-copy-height" class="secondary" data-i18n="copyHeight">Copy height</button></div></div>
+    <p class="field-help" data-i18n="obsPositionHeading">Recommended position: enter in OBS Edit Transform</p>
+    <div class="obs-dimensions"><div><span data-i18n="obsX">Horizontal position (X)</span><strong id="dialog-x">—</strong><button id="dialog-copy-x" class="secondary" data-i18n="copyX">Copy horizontal position</button></div><div><span data-i18n="obsY">Vertical position (Y)</span><strong id="dialog-y">—</strong><button id="dialog-copy-y" class="secondary" data-i18n="copyY">Copy vertical position</button></div></div>
+    <p class="field-help" data-i18n="placementHelp">Calculated from your player side and LIFT for a game filling a 1920 × 1080 canvas. If your game layout differs, use the position adjustments above.</p>
+    <button id="dialog-copy" class="primary wide" data-i18n="copyUrl">Copy address for OBS</button><p id="dialog-copy-feedback" class="copy-feedback" role="status" hidden></p><p class="field-help" data-i18n="obsWarning">Keep Lift Trace running while using the overlay. Stretching the overlay vertically in OBS also changes its visible speed.</p>
+  </dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
