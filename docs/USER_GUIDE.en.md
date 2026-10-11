@@ -1,6 +1,6 @@
 # Step-by-step user guide
 
-[English](USER_GUIDE.en.md) · [한국어](USER_GUIDE.ko.md) · [日本語](USER_GUIDE.ja.md) · [Home](../README.md)
+[한국어](USER_GUIDE.ko.md) · [日本語](USER_GUIDE.ja.md) · [English](USER_GUIDE.en.md) · [Home](../README.en.md)
 
 Follow this order: **download → extract → open the app → enter game numbers → set up keys and scratch → paste into OBS**. You do not need to type commands or install Python.
 
@@ -138,7 +138,7 @@ First check that the steps above work. You can then have OBS start the input dis
 4. Keep **Start automatically with OBS** enabled. Leave the other boxes unchanged to begin with.
 5. Click **Start / connect input server**. On future starts, OBS also prepares the input display. If no controller is selected, choose it through **Open input settings**.
 
-If OBS starts the input display, closing that OBS also stops the display. If Lift Trace was already running before OBS opened, closing OBS leaves it running. Detailed settings are in the [technical reference](REFERENCE.md#optional-obs-startup-settings).
+If OBS starts the input display, closing that OBS also stops the display. If Lift Trace was already running before OBS opened, closing OBS leaves it running. Detailed settings are in the [technical reference](REFERENCE.en.md#optional-obs-startup-settings).
 
 ## Update or remove
 
@@ -169,4 +169,4 @@ If it still does not work, open **Issues** on GitHub and tell us **which button 
 
 This app shows your key presses and scratch movements. It cannot identify game judgments or whether a hold is a real chart long note. Your controller and game-capture setup may need additional adjustment.
 
-[Technical reference](REFERENCE.md) · [Validation status and checks](VALIDATION.md) · [Contributing](../CONTRIBUTING.md) · [Security and local data](../SECURITY.md)
+[Technical reference](REFERENCE.en.md) · [Validation status and checks](VALIDATION.en.md) · [Contributing](../CONTRIBUTING.en.md) · [Security and local data](../SECURITY.en.md)

@@ -1,34 +1,36 @@
-# Releasing
+# 릴리스 안내
 
-[Development](DEVELOPMENT.md) · [Validation](VALIDATION.md) · [Changelog](../CHANGELOG.md)
+[한국어](RELEASING.md) · [日本語](RELEASING.ja.md) · [English](RELEASING.en.md)
 
-Maintain **one source tree and two artifacts**: a ready-to-run Windows app for users, and the exact source used to build it for contributors. Build both from the release source, never by copying a personal working folder.
+[개발 가이드](DEVELOPMENT.md) · [검증 현황](VALIDATION.md) · [변경 이력](../CHANGELOG.md)
 
-## Who does what
+같은 소스 코드에서 **바로 실행할 Windows 앱**과 **그 앱을 만드는 데 사용한 소스 ZIP**을 배포합니다. 개인 작업 폴더를 복사해 보내는 대신, 배포할 소스를 확정한 뒤 두 파일을 만듭니다.
 
-| Role | Responsibility |
+## 담당할 일
+
+| 담당 | 할 일 |
 | --- | --- |
-| Contributor | Propose a focused change, run relevant checks and explain what remains unverified. Use a short-lived branch and a pull request to `main`; see [Contributing](../CONTRIBUTING.md#branches-and-review). |
-| Maintainer | Review changes, choose the version and exact commit, assess real-use results and release notes, then authorize publication. |
-| GitHub Actions | Run the configured tests and build steps, calculate hashes and save artifacts. A green run reports those checks; it does not decide whether the product is ready. |
-| AI assistant | Help prepare changes, run tools and draft notes within the maintainer's authorization. Describe observed results and gaps accurately; AI review does not stand in for human or hardware testing. |
+| 기여자 | 하나의 목적에 맞게 변경하고, 관련 검사를 실행한 뒤 남은 확인 사항을 설명합니다. 작업 브랜치에서 진행하고 `main`으로 PR을 엽니다. [브랜치와 검토](../CONTRIBUTING.md#브랜치와-검토)를 참고하세요. |
+| 관리자 | 변경을 검토하고 버전과 정확한 커밋을 정합니다. 실제 사용 결과와 릴리스 설명을 확인한 뒤 공개를 승인합니다. |
+| GitHub Actions | 설정된 테스트와 빌드를 실행하고, 해시를 계산해 결과 파일을 보관합니다. 성공 표시는 해당 검사를 통과했다는 뜻이며, 배포 준비가 끝났다는 판단을 대신하지 않습니다. |
+| AI 도우미 | 관리자가 허용한 범위에서 변경, 도구 실행, 설명 작성을 돕습니다. 확인한 결과와 미확인 항목을 정확히 구분해야 하며, 사람의 검토나 실물 장치 테스트를 대신하지 않습니다. |
 
-An authorized tool or workflow can create a release; a person does not have to upload every file by hand. The maintainer remains responsible for choosing what to publish. The current workflow stops at build artifacts, as described below.
+권한을 받은 도구나 워크플로가 릴리스를 만들 수 있으므로, 사람이 매번 모든 파일을 직접 올릴 필요는 없습니다. 무엇을 공개할지는 관리자가 결정합니다. 현재 워크플로는 아래에 설명한 대로 빌드 결과를 보관하는 단계까지만 자동화합니다.
 
-## Prepare a version
+## 버전 준비하기
 
-1. Choose the next version when preparing a release, not for every pull request. Set it in `package.json`, update the UI version badge, and move the relevant Unreleased changes into a dated changelog entry. User download instructions identify files by their stable name prefixes; do not insert a specific version into those steps.
-2. Review the explicit file lists in `tools/build_release.py`. Keep required runtime files, public documentation, tests and build tooling; exclude local settings, logs, recordings, OBS profiles, unrelated integrations and private paths.
-3. Run the commands and relevant behavior checks in [Development](DEVELOPMENT.md). Update [Validation](VALIDATION.md) with the build tested, results and remaining gaps. Record which Windows/OBS versions and controllers were actually tested. Do not turn a target platform into an untested support claim or an AI review into a human review.
-4. Build the source ZIP and Windows ZIP from the same clean source revision. Use the pinned `requirements-build.txt` inside a dedicated build environment.
+1. PR마다 버전을 바꾸지 말고, 배포를 준비할 때 다음 버전을 정합니다. `package.json`과 화면의 버전 표시를 바꾸고, 변경 이력의 미출시에서 이번 배포 내용을 날짜가 있는 버전 항목으로 옮깁니다. 사용자용 다운로드 안내에는 특정 버전 번호 대신 파일 이름의 공통 앞부분을 사용합니다.
+2. `tools/build_release.py`의 배포 대상 파일 목록을 확인합니다. 실행에 필요한 파일, 공개 문서, 테스트, 빌드 도구는 포함하고, 로컬 설정, 로그, 녹화, OBS 프로필, 별도 연동 모듈, 개인 경로는 제외합니다.
+3. [개발 가이드](DEVELOPMENT.md)의 명령과 변경에 필요한 동작 검사를 실행합니다. [검증 현황](VALIDATION.md)에 확인한 빌드, 결과, 남은 항목을 기록합니다. Windows·OBS 버전과 컨트롤러는 실제로 테스트한 것만 적습니다. 목표로 삼는 환경을 검증한 호환성으로 표현하거나, AI 검토를 사람의 검토로 적지 마세요.
+4. 변경 사항을 모두 커밋한 같은 소스에서 소스 ZIP과 Windows ZIP을 만듭니다. 전용 빌드 환경에 버전이 고정된 `requirements-build.txt`를 사용합니다.
 
-Commit the final version, documentation and code before building. Use a tag named `vX.Y.Z`, such as `v0.1.0`, pointing to that exact tested commit. The tag, `package.json`, source ZIP and Windows package must describe the same revision and version. Record the commit and build run; do not combine a new source archive with an older executable.
+빌드 전에 최종 버전, 문서, 코드를 커밋합니다. 검증한 바로 그 커밋에 `v0.1.0`처럼 `vX.Y.Z` 형식의 태그를 붙입니다. 태그, `package.json`, 소스 ZIP, Windows 배포본은 같은 코드와 버전을 가리켜야 합니다. 커밋과 빌드 실행 기록을 남기고, 새 소스 ZIP에 예전 실행 파일을 섞지 마세요.
 
-Once a release is public, do not move its tag, overwrite its ZIPs, or replace its checksums with a different build. Fixes belong in a new version. Release-note wording may be clarified without replacing the published files. Tag protection rules could enforce this convention later; they are not currently configured as part of this workflow.
+공개한 릴리스의 태그를 다른 커밋으로 옮기거나 ZIP과 체크섬을 다른 빌드로 덮어쓰지 않습니다. 수정은 새 버전으로 배포합니다. 파일을 교체하지 않는 설명 보완은 가능합니다. 나중에 태그 보호 규칙으로 이를 강제할 수 있지만, 현재 워크플로에는 그런 규칙을 설정하지 않았습니다.
 
-## Build and verify
+## 빌드하고 확인하기
 
-On Windows x64, start in a clean checkout without an existing `.venv-build`. Use an available Python 3.10+ for preparation; the Windows package itself is built with the pinned official **Python 3.13.16 x64** runtime:
+Windows x64에서 변경 사항이 없는 저장소 사본으로 시작합니다. 기존 `.venv-build`가 없어야 합니다. 준비 단계에는 사용 가능한 Python 3.10 이상을 쓰며, Windows 배포본은 버전이 고정된 공식 **Python 3.13.16 x64**로 만듭니다.
 
 ```powershell
 python tools/prepare_runtime.py
@@ -39,60 +41,59 @@ python tools/build_release.py
 python tools/smoke_windows.py
 ```
 
-The Windows builder packages the application with PyInstaller; this is a maintainer dependency, never an installation step for ordinary users. The source builder also works without PyInstaller. `tools/smoke_windows.py` accepts an optional path to the Windows ZIP; by default it uses the current version in `artifacts/`.
+Windows 빌드에는 PyInstaller를 사용합니다. 이는 배포 담당자가 쓰는 도구이며, 일반 사용자에게 설치를 요구하지 않습니다. 소스 ZIP은 PyInstaller 없이도 만들 수 있습니다. `tools/smoke_windows.py`에 Windows ZIP 경로를 전달할 수 있으며, 생략하면 `artifacts/`의 현재 버전 파일을 검사합니다.
 
-The preparation command keeps the downloaded archive, Windows manifest and SPDX SBOM under `artifacts/python-runtime/downloads/`, and extracts the runtime into the adjacent `python/` folder. Keep both folders while building. Hashes and official download URLs are pinned in `tools/python-runtime.json`. No system-wide Python installation or PATH change is required.
+준비 명령은 받은 압축 파일, Windows 매니페스트, SPDX SBOM을 `artifacts/python-runtime/downloads/`에 보관하고, 런타임을 옆의 `python/` 폴더에 풉니다. 빌드가 끝날 때까지 두 폴더를 유지하세요. 공식 다운로드 주소와 해시는 `tools/python-runtime.json`에 고정되어 있습니다. 시스템 전체에 Python을 설치하거나 PATH를 바꿀 필요는 없습니다.
 
-The provenance check validates the official metadata, compares extracted files with the pinned archive and compares packaged DLL/PYD files with those originals. It establishes traceability to the official distribution; it does not reproduce that distribution from source or certify security, legal compliance or application quality.
+런타임 출처 검사는 공식 메타데이터를 확인하고, 압축을 푼 파일을 지정된 공식 압축 파일과 비교한 뒤, 배포본의 DLL/PYD도 원본 파일과 비교합니다. 공식 배포본에서 가져온 파일인지 추적하는 검사입니다. 공식 배포본을 소스에서 다시 빌드하는 과정이나 보안·법적 적합성·앱 품질 인증은 아닙니다.
 
-The pinned-runtime procedure completed a verified Windows build; see [Validation](VALIDATION.md) for its scope and recorded results. Repeat it for each release. An ordinary custom-runtime build can still succeed while setting `bundledRuntime.runtimeProvenanceVerified: false`; do not treat that as a passing provenance check. The source ZIP bundles no runtime.
+위의 공식 런타임을 사용한 Windows 빌드가 이 검사를 통과한 기록은 [검증 현황](VALIDATION.md)에 있습니다. 릴리스마다 다시 확인하세요. 다른 런타임을 사용하는 일반 빌드는 성공해도 `bundledRuntime.runtimeProvenanceVerified: false`일 수 있으며, 이를 출처 검사 통과로 처리하면 안 됩니다. 소스 ZIP에는 런타임을 넣지 않습니다.
 
-Expected downloadable files (`<version>` comes from `package.json`):
+배포할 파일은 다음과 같습니다. `<version>`은 `package.json`의 버전입니다.
 
-- `lift-trace-windows-x64-<version>.zip` — extract and run LiftTrace.exe.
-- `lift-trace-source-<version>.zip` — sources, tests, docs and build tooling.
-- `SHA256SUMS` — matching-version source and Windows archive hashes; per-archive `.sha256` files can also be included.
+- `lift-trace-windows-x64-<version>.zip` — 압축을 풀고 LiftTrace.exe를 실행하는 사용자용 앱
+- `lift-trace-source-<version>.zip` — 소스, 테스트, 문서, 빌드 도구
+- `SHA256SUMS` — 같은 버전의 두 ZIP에 대한 해시. 파일별 `.sha256`도 함께 제공할 수 있습니다.
 
-Before upload, extract the Windows ZIP into a clean directory and check:
+업로드하기 전에 Windows ZIP을 새 폴더에 풀어 다음 항목을 확인합니다.
 
-- LiftTrace.exe starts without a system Python or Node.js on PATH. The complete `_internal` folder is included.
-- The manager opens settings in English, Korean and Japanese; Quit and window close clean up an owned server.
-- A preexisting healthy server is reused and preserved. An unrelated listener produces an understandable failure.
-- Guided controller mapping, cancellation and the standalone demo work. Clockwise and counterclockwise setup steps detect opposite directions; both axis polarities produce the correct circular arrows and distinct light/deep coral colors.
-- Automatic LIFT height, manual-height preservation, legacy settings and LIFT 0 guidance work. Enter game values or select a manual height before checking visible demo input notes. App size changes do not silently imply that OBS has resized.
-- The explicit 1080p lane-size preset, X/Y calculation, copy buttons and saved position adjustments work in all three languages. Verify the guide's top-left/100% placement steps, old manual-position preservation and explicit OBS apply behavior; app edits alone must not move a scene item.
-- OBS integration finds adjacent LiftTrace.exe, starts a new server and stops it when its OBS process exits; a reused server survives.
-- Internal documentation links and the original schematic resolve in the extracted folder.
-- `LICENSE`, `THIRD_PARTY_NOTICES.md` and `licenses/` are present. Runtime components retain their own licenses; MIT applies to project code.
-- Runtime notice sources match the bundled components, `bundledRuntime.runtimeProvenanceVerified` is true, and no `unverifiedComponents` remain. Inspect the recorded archive/metadata hashes and packaged binary mappings; retain `provenance/python-runtime.spdx.json`. Merely including license files does not complete this check.
-- No `data/`, local credentials, captures or personal configuration appears in either ZIP.
+- 시스템 Python이나 Node.js가 PATH에 없어도 LiftTrace.exe가 실행되고, `_internal` 폴더가 빠짐없이 포함되어 있습니다.
+- 작은 관리 창에서 한국어·일본어·영어 설정 화면을 열 수 있습니다. 종료 버튼이나 창 닫기를 사용하면 그 창에서 시작한 서버가 종료됩니다.
+- 먼저 실행 중이던 정상 서버는 재사용하며 종료하지 않습니다. 같은 주소에서 다른 프로그램이 실행 중이면 이해할 수 있는 오류를 보여줍니다.
+- 컨트롤러 설정, 취소, 데모가 동작합니다. 시계방향·반시계방향 단계에서 반대 방향을 구분하고, 축 값이 늘어나는 방향이 어느 쪽이든 둥근 화살표와 연한·진한 산호색이 맞게 표시됩니다.
+- LIFT에 따른 자동 높이, 수동 높이 유지, 이전 설정 불러오기, LIFT 0 안내가 동작합니다. 데모 입력 노트를 보기 전에 게임 수치를 넣거나 수동 높이를 지정합니다. 앱의 크기를 바꿨다고 OBS의 크기도 바뀐 것처럼 안내하면 안 됩니다.
+- 1080p 레인 크기 맞추기, X/Y 계산, 복사 버튼, 위치 조정값 저장이 세 언어에서 동작합니다. 안내서의 왼쪽 상단·100% 배치, 기존 수동 위치 유지, 명시적인 OBS 적용 절차를 확인합니다. 앱 설정을 고치는 것만으로 OBS 장면 항목이 이동해서는 안 됩니다.
+- OBS 연동은 같은 폴더의 LiftTrace.exe를 찾아 서버를 시작하고, 해당 OBS 프로세스가 끝나면 자신이 시작한 서버도 종료합니다. 재사용한 서버는 계속 실행되어야 합니다.
+- 압축을 푼 폴더에서 문서 내부 링크와 설명용 그림을 열 수 있습니다.
+- `LICENSE`, `THIRD_PARTY_NOTICES.md`, `licenses/`가 포함되어 있습니다. MIT는 프로젝트 코드에 적용되며, 런타임 구성 요소에는 각자의 라이선스가 적용됩니다.
+- 런타임 라이선스 고지의 출처가 실제 구성 요소와 맞고, `bundledRuntime.runtimeProvenanceVerified`가 true이며, `unverifiedComponents`가 비어 있습니다. 기록한 압축 파일·메타데이터 해시와 배포 바이너리 대응 목록을 확인하고 `provenance/python-runtime.spdx.json`을 보존합니다. 라이선스 파일을 넣는 것만으로 검사가 끝나지는 않습니다.
+- 두 ZIP에 `data/`, 로컬 인증 정보, 캡처, 개인 설정이 들어 있지 않습니다.
 
-The automated smoke test covers a headless packaged server and OBS-helper ownership with a synthetic parent process. It does not replace testing the desktop GUI, a physical controller, actual OBS rendering or game-capture timing.
+자동 스모크 테스트는 화면을 띄우지 않는 패키지 서버와, 테스트용 부모 프로세스를 사용한 OBS 실행 도우미의 종료 책임을 확인합니다. 데스크톱 창, 실제 컨트롤러, 실제 OBS 렌더링, 게임 캡처와의 타이밍을 직접 확인하는 테스트와는 구분합니다.
 
-`bundledRuntime.runtimeProvenanceVerified` describes the builder's distributor and file-integrity check only. It does not certify application quality, security, legal compliance or compatibility with a user's PC. Keep the other checks and limitations above separate from that field.
+`bundledRuntime.runtimeProvenanceVerified`는 빌드 도구가 확인한 배포 출처와 파일 무결성만 나타냅니다. 앱 품질, 보안, 법적 적합성, 사용자 PC에서의 호환성을 인증하는 값이 아닙니다. 다른 확인 항목과 한계는 별도로 기록하세요.
 
-## GitHub workflow and publication
+## GitHub 워크플로와 공개
 
-The current `.github/workflows/verify.yml` has two paths:
+현재 `.github/workflows/verify.yml`에는 두 실행 경로가 있습니다.
 
-- **Push or pull request:** run Python/JavaScript tests on Windows and Ubuntu and build the source archive. The recorded 2026-10-12 push run passed all four test combinations; see [Validation](VALIDATION.md) for its commit and run.
-- **Manual “Run workflow”:** run those tests, then prepare the pinned runtime, build the Windows package with `--require-verified-runtime`, run the smoke check and upload the ZIPs and hashes as an Actions artifact. The Windows job was skipped in the recorded push run; that run did not build an executable.
+- **push 또는 PR:** Windows와 Ubuntu에서 Python·JavaScript 테스트를 실행하고 소스 ZIP을 만듭니다. 기록된 2026-10-12 push 실행은 네 가지 테스트 조합을 모두 통과했습니다. 커밋과 실행 링크는 [검증 현황](VALIDATION.md)에 있습니다.
+- **수동 Run workflow:** 위 테스트를 실행한 뒤 공식 런타임 준비, `--require-verified-runtime`을 사용한 Windows 빌드, 스모크 테스트를 진행하고 ZIP과 해시를 Actions 결과 파일로 올립니다. 앞서 기록한 push 실행에서는 Windows 빌드 작업을 건너뛰었으므로, 그 실행에서 EXE를 만들었다고 볼 수 없습니다.
 
-The workflow uses `contents: read`. **It does not create a draft release or publish a GitHub Release.** An Actions artifact is a build output attached to a workflow run, not the download offered under Releases.
+이 워크플로의 권한은 `contents: read`입니다. **릴리스 초안을 만들거나 GitHub Release를 공개하지 않습니다.** Actions 결과 파일은 해당 실행에 보관한 빌드 결과이며, Releases에서 제공하는 다운로드와는 별개입니다.
 
-For publication, choose the tested source revision, create its version tag and draft a GitHub Release. Upload the two ZIPs and checksums as release **Assets**. Put the Windows ZIP first in the release text with the label **Windows app — no Python installation required**; identify the source ZIP separately as **For contributors**.
+공개할 때는 검증한 소스를 정하고 버전 태그와 GitHub Release 초안을 만듭니다. 두 ZIP과 체크섬을 릴리스의 **Assets**에 올립니다. 설명에서는 Windows ZIP을 먼저 안내하고 **Windows 앱 — Python 설치 불필요**라고 표시합니다. 소스 ZIP은 **기여자용 소스**로 구분합니다.
 
-State the tested environments, known limitations and signing status in the release notes. Link to the validation record and keep any uncompleted checks marked as pending. The current app is an **unsigned prototype**; do not describe it as signed or ask users to disable Windows/antivirus protections. Do not treat a checksum alone as proof of publisher identity. If signing is added later, sign before generating final archive hashes and update the documentation.
+릴리스 설명에 실제로 확인한 환경, 알려진 한계, 코드 서명 여부를 적습니다. 검증 기록을 연결하고 완료하지 않은 확인은 대기 상태로 남깁니다. 현재 앱은 **코드 서명이 없는 초기 시험판**입니다. 서명된 앱이라고 설명하거나 Windows·백신 보호 기능을 끄라고 안내하지 마세요. 체크섬만으로 배포자의 신원이 증명되는 것도 아닙니다. 나중에 서명을 추가하면 최종 압축 파일의 해시를 만들기 전에 서명하고 문서를 갱신합니다.
 
-Review the draft's files, links and notes, then publish. Keep the download links in all three READMEs pointed at the latest release. Never upload only GitHub's automatically generated source archives as the user installation route.
+초안의 파일, 링크, 설명을 검토한 뒤 공개합니다. 세 언어 README의 다운로드 링크는 최신 릴리스를 가리키도록 유지합니다. 사용자가 설치할 파일 대신 GitHub가 자동 생성한 소스 압축 파일만 제공하지 마세요.
 
-## Possible next step: automate a draft release
+## 향후 검토할 자동화: 릴리스 초안 만들기
 
-**This is a proposed extension, not configured behavior.** The intended sequence would be: the maintainer selects a trusted commit and version → Actions checks, builds and hashes that revision → Actions attaches the outputs to a draft release → the maintainer reviews real-use results, notes and files, then authorizes publication. Do not infer hardware compatibility, timing accuracy or natural wording from successful automation. Pending checks must remain visible in the release notes.
+**아래는 제안이며 아직 설정하지 않았습니다.** 관리자가 신뢰할 수 있는 커밋과 버전을 선택하면 → Actions가 그 코드로 검사·빌드·해시 계산을 하고 → 결과를 릴리스 초안에 첨부한 뒤 → 관리자가 실제 사용 결과와 설명·파일을 검토해 공개를 승인하는 흐름입니다. 자동화 성공만으로 장치 호환성, 타이밍 정확성, 자연스러운 문장을 확인했다고 판단하지 않습니다. 미확인 항목은 릴리스 설명에 남겨야 합니다.
 
-If implemented, keep test/build jobs read-only and grant `contents: write` only to the job that creates the draft and attaches files. Use the repository's built-in `GITHUB_TOKEN`; this design does not need a personal access token. GitHub documents the [release permission](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions) and [job-level token permissions](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token#modifying-the-permissions-for-the-github_token).
+구현한다면 테스트·빌드 작업은 읽기 권한을 유지하고, 초안을 만들고 파일을 첨부하는 작업에만 `contents: write`를 부여합니다. 저장소의 기본 `GITHUB_TOKEN`을 사용하며, 이 설계에 개인 액세스 토큰(PAT)은 필요하지 않습니다. GitHub의 [권한 설정](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions)과 [작업별 토큰 권한](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token#modifying-the-permissions-for-the-github_token)을 참고하세요.
 
-Run the release job only for a maintainer-selected, trusted repository reference. Do not execute fork pull-request code with release credentials or pass secrets into it. Keep the release inputs tied to the reviewed commit, not an arbitrary branch name or an artifact supplied by an untrusted pull request. This follows GitHub's [fork-workflow credential boundary](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflows-in-forked-repositories).
+릴리스 작업은 관리자가 선택한 신뢰할 수 있는 저장소 참조에서만 실행합니다. 포크 PR의 코드를 릴리스 권한으로 실행하거나 그 코드에 비밀 정보를 전달하지 마세요. 빌드 입력은 검토한 커밋에 연결하고, 임의의 브랜치 이름이나 신뢰하지 않는 PR이 제공한 결과 파일을 사용하지 않습니다. GitHub의 [포크 워크플로 권한 제한](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflows-in-forked-repositories)을 따릅니다.
 
-Automation and AI assistance do not provide a security audit or legal certification. Hashes detect changed files but do not establish publisher identity, and this app is currently unsigned. Physical-controller tests, game/OBS timing checks and review by readers of each language remain separate responsibilities; record their actual scope in [Validation](VALIDATION.md).
-
+자동화나 AI 지원은 보안 감사나 법적 인증을 제공하지 않습니다. 해시는 파일 변경을 확인할 수 있지만 배포자의 신원을 증명하지 않으며, 현재 앱에는 코드 서명이 없습니다. 실물 컨트롤러, 게임·OBS 타이밍, 각 언어 사용자의 검토는 별도로 진행하고 실제 확인 범위를 [검증 현황](VALIDATION.md)에 기록합니다.

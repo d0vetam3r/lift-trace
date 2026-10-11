@@ -1,6 +1,6 @@
 # 처음부터 따라 하는 사용 안내
 
-[English](USER_GUIDE.en.md) · [한국어](USER_GUIDE.ko.md) · [日本語](USER_GUIDE.ja.md) · [처음으로](../README.ko.md)
+[한국어](USER_GUIDE.ko.md) · [日本語](USER_GUIDE.ja.md) · [English](USER_GUIDE.en.md) · [처음으로](../README.md)
 
 **파일 받기 → 압축 풀기 → 프로그램 켜기 → 게임 수치 입력 → 건반·스크래치 설정 → OBS에 붙여넣기** 순서로 진행합니다. 명령어를 입력하거나 Python을 설치할 필요는 없습니다.
 

@@ -1,6 +1,6 @@
 # 最初から順番に進める使い方
 
-[English](USER_GUIDE.en.md) · [한국어](USER_GUIDE.ko.md) · [日本語](USER_GUIDE.ja.md) · [トップ](../README.ja.md)
+[한국어](USER_GUIDE.ko.md) · [日本語](USER_GUIDE.ja.md) · [English](USER_GUIDE.en.md) · [トップ](../README.ja.md)
 
 **ダウンロード → 展開 → アプリを開く → ゲームの数値を入力 → 鍵盤・スクラッチの設定 → OBSに貼り付け** の順に進めます。コマンドの入力やPythonのインストールは不要です。
 
@@ -138,7 +138,7 @@ Windows 10/11（64ビット）のPCとコントローラーを用意してくだ
 4. **OBS起動時に自動起動** を有効にします。ほかの欄は、最初は変更しないでください。
 5. **入力サーバーを起動 / 接続** を押します。次回からはOBSを開くと入力表示も準備されます。コントローラーが未選択なら **入力設定を開く** から自分の機器を選んでください。
 
-OBSから入力表示を起動した場合は、そのOBSを閉じると入力表示も終了します。OBSを開く前からLift Traceが起動していた場合は、OBSを閉じてもLift Traceは動き続けます。詳しい設定は [技術リファレンス](REFERENCE.md#optional-obs-startup-settings) にあります。
+OBSから入力表示を起動した場合は、そのOBSを閉じると入力表示も終了します。OBSを開く前からLift Traceが起動していた場合は、OBSを閉じてもLift Traceは動き続けます。詳しい設定は [技術リファレンス](REFERENCE.ja.md#optional-obs-startup-settings) にあります。
 
 ## 更新と削除
 
@@ -169,4 +169,4 @@ OBS自動起動を使う場合は、OBSのスクリプト一覧から古い項�
 
 このアプリは鍵盤とスクラッチの入力を表示します。ゲームの判定や、譜面上の本当のロングノーツかどうかは分かりません。コントローラーやゲームキャプチャーの環境によって、追加の調整が必要になる場合があります。
 
-[技術リファレンス](REFERENCE.md) · [検証状況と確認手順](VALIDATION.md) · [貢献ガイド](../CONTRIBUTING.md) · [セキュリティとローカルデータ](../SECURITY.md)
+[技術リファレンス](REFERENCE.ja.md) · [検証状況と確認手順](VALIDATION.ja.md) · [貢献ガイド](../CONTRIBUTING.ja.md) · [セキュリティとローカルデータ](../SECURITY.ja.md)

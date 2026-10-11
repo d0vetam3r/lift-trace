@@ -1,104 +1,106 @@
-# Development
+# 개발 가이드
 
-[Home](../README.md) · [Contributing](../CONTRIBUTING.md) · [Validation](VALIDATION.md) · [Releasing](RELEASING.md)
+[한국어](DEVELOPMENT.md) · [日本語](DEVELOPMENT.ja.md) · [English](DEVELOPMENT.en.md)
 
-This document is for contributors. **Windows app users should follow the [user guide](USER_GUIDE.en.md), not install these development tools.**
+[처음으로](../README.md) · [기여 안내](../CONTRIBUTING.md) · [검증 현황](VALIDATION.md) · [릴리스 안내](RELEASING.md)
 
-The repository and `lift-trace-source-<version>.zip` are the source of the Windows app. There is one product: the executable package adds a runtime so users can run it without a development environment.
+이 문서는 기여자를 위한 문서입니다. **Windows 앱을 사용하려면 개발 도구를 설치할 필요 없이 [사용 안내](USER_GUIDE.ko.md)를 따라 주세요.**
 
-## Run from source
+이 저장소와 `lift-trace-source-<version>.zip`은 Windows 앱의 소스입니다. 별개의 제품이 아니라, 같은 앱에 런타임을 함께 넣어 개발 환경 없이도 실행할 수 있게 만든 것이 실행 파일 배포본입니다.
 
-Requirements:
+## 소스로 실행하기
 
-- **Python 3.10+**. The desktop manager uses Tkinter, normally included in the Windows Python installer.
-- **Node.js 18+** for JavaScript tests only.
-- Windows for native controller input and OBS automatic startup; OBS Studio for manual integration checks.
+필요한 도구와 환경:
 
-There are no third-party Python or npm packages required to run the source application. From the source root:
+- **Python 3.10 이상**. 데스크톱 관리 창은 Tkinter를 사용하며, 일반적인 Windows Python 설치 프로그램에 포함되어 있습니다.
+- **Node.js 18 이상**. JavaScript 테스트에만 필요합니다.
+- 컨트롤러의 네이티브 입력과 OBS 자동 실행에는 Windows가 필요합니다. 수동 연동 확인에는 OBS Studio도 필요합니다.
+
+소스로 앱을 실행할 때 별도의 Python·npm 패키지는 필요하지 않습니다. 소스 최상위 폴더에서 실행합니다.
 
 ```sh
 python desktop.py
 ```
 
-This opens the same desktop manager used in the Windows app and a browser settings page. Alternatively, run only the server:
+Windows 앱과 같은 데스크톱 관리 창과 브라우저 설정 화면이 열립니다. 서버만 실행하려면 다음 명령을 사용합니다.
 
 ```sh
 python server.py
 ```
 
-Then open `http://127.0.0.1:8765/`. Ctrl+C stops this foreground server. `start.bat` remains a convenience for source users; it is not the installation route in user documentation. `bash start.sh` supports the demo/focused-page keyboard path on macOS/Linux, without native controller input or OBS startup support.
+이후 `http://127.0.0.1:8765/`를 엽니다. 이 방식으로 실행한 서버는 Ctrl+C로 종료합니다. `start.bat`은 소스 사용자용 편의 기능으로 남아 있으며, 일반 사용자 안내의 설치 방법은 아닙니다. macOS/Linux에서는 `bash start.sh`로 데모와 설정 페이지에 포커스가 있을 때의 키보드 입력을 사용할 수 있습니다. 이 환경에서는 네이티브 컨트롤러 입력과 OBS 자동 실행을 지원하지 않습니다.
 
-The packaged executable supports a headless mode used by the OBS helper; its source equivalent is:
+패키징된 실행 파일에는 OBS 도우미가 사용하는 창 없는 서버 실행 모드가 있습니다. 소스에서는 다음과 같이 실행합니다.
 
 ```sh
 python desktop.py --serve --port 8765 --data-dir data
 ```
 
-Use a writable `--data-dir` for isolated checks. The manager supports `--language en`, `--language ko` and `--language ja`; the settings page accepts `?lang=en`, `?lang=ko` and `?lang=ja`.
+격리해서 확인할 때는 쓰기 가능한 `--data-dir`을 지정하세요. 관리 창은 `--language en`, `--language ko`, `--language ja`를 지원하며, 설정 페이지는 `?lang=en`, `?lang=ko`, `?lang=ja`를 지원합니다.
 
-## Test
+## 테스트
 
 ```sh
 python -m unittest discover -s tests -p "test_*.py" -v
 node --test tests/engine.test.mjs tests/client.test.mjs tests/render.test.mjs tests/i18n.test.mjs tests/setup.test.mjs
 ```
 
-Some Python tests open temporary loopback listeners. A restricted environment must permit them. Tests use synthetic input, so they require no controller and cannot verify physical compatibility or game-capture synchronization.
+일부 Python 테스트는 루프백 주소에서 임시로 연결을 받습니다. 제한된 실행 환경에서는 이를 허용해야 합니다. 테스트는 합성 입력을 사용하므로 컨트롤러가 필요하지 않으며, 실제 장치 호환성이나 게임 캡처와의 동기화를 확인할 수는 없습니다.
 
-`.github/workflows/verify.yml` runs these checks on Windows and Ubuntu with Python 3.10/3.13 and Node 22. All four combinations passed in the recorded 2026-10-12 push run; see [Validation](VALIDATION.md) for the tested commit and run. Cross-platform test success does not add native controller support to non-Windows systems. A manual workflow dispatch is configured to prepare the pinned runtime, build the Windows app with provenance verification, run its smoke check and upload an Actions artifact; it does not publish a release. That Windows build job was skipped in the recorded push run.
+`.github/workflows/verify.yml`은 Windows와 Ubuntu에서 Python 3.10/3.13 및 Node 22로 이 검사를 실행합니다. 기록된 2026-10-12 push 실행에서는 네 조합 모두 통과했습니다. 검사한 커밋과 실행 기록은 [검증 현황](VALIDATION.md)을 보세요. 여러 운영체제에서 테스트를 통과했다고 해서 Windows 이외의 환경에 네이티브 컨트롤러 지원이 추가되는 것은 아닙니다. 수동 워크플로 실행은 고정된 런타임 준비, 출처 검증을 포함한 Windows 앱 빌드, 기본 실행 검사, Actions 아티팩트 업로드를 수행하도록 설정되어 있습니다. 릴리스를 게시하지는 않습니다. 기록된 push 실행에서는 이 Windows 빌드 작업을 건너뛰었습니다.
 
-## Structure
+## 구조
 
-| Path | Responsibility |
+| 경로 | 역할 |
 | --- | --- |
-| `desktop.py` | Desktop manager, localized startup/errors, server ownership, frozen-app paths and headless entry. |
-| `server.py` | Loopback HTTP, SSE, settings and shared demo timing. |
-| `native_input.py` | Windows WinMM enumeration and controller polling. |
-| `web/engine.js` | Input history, scratch tracking and elapsed-time falling positions. |
-| `web/render.js` | Canvas renderer shared by preview and overlay. |
-| `web/client.js` | Server events, settings and input-mode coordination. |
-| `web/index.html`, `web/app.js` | Settings page, preview and guided setup UI. |
-| `web/setup.js` | Controller setup state machine, button releases, separate clockwise/counterclockwise checks, axis/polarity detection and draft validation. |
-| `web/i18n.js`, `web/translations.js` | English, Korean and Japanese UI, language selection. |
-| `web/overlay.html`, `web/overlay.js` | Browser Source output. |
-| `web/demo.json` | Synthetic demonstration; no game chart or game asset. |
-| `obs-lift-trace.lua` | Optional OBS settings, startup and source placement. |
-| `start-obs-bridge.ps1` | Hidden startup, adjacent-EXE selection, server reuse and OBS ownership. |
-| `tests/` | Python protocol/lifecycle/input and JavaScript behavior tests. |
-| `tools/build_release.py` | Explicit source-distribution allowlist, manifest and archive checksums. |
-| `tools/build_windows.py`, `requirements-build.txt` | Windows packaging and pinned build-only dependencies. |
-| `tools/prepare_runtime.py`, `tools/python-runtime.json` | Download and extract the pinned official Windows Python and its published provenance files into the workspace. |
-| `tools/runtime_provenance.py` | Verify official archive metadata, extracted files and packaged runtime binaries. |
-| `tools/smoke_windows.py` | Extracted Windows ZIP startup and synthetic OBS-parent lifecycle checks. |
+| `desktop.py` | 데스크톱 관리 창, 다국어 시작·오류 안내, 서버 소유권, 패키징된 앱의 경로, 창 없는 실행 진입점. |
+| `server.py` | 루프백 HTTP, SSE, 설정, 공유 데모 시간 관리. |
+| `native_input.py` | Windows WinMM 장치 검색과 컨트롤러 입력 폴링. |
+| `web/engine.js` | 입력 이력, 스크래치 추적, 경과 시간에 따른 낙하 위치 계산. |
+| `web/render.js` | 미리보기와 오버레이가 공유하는 Canvas 렌더러. |
+| `web/client.js` | 서버 이벤트, 설정, 입력 모드 간 조정. |
+| `web/index.html`, `web/app.js` | 설정 페이지, 미리보기, 단계별 설정 UI. |
+| `web/setup.js` | 컨트롤러 설정 상태 머신, 버튼 해제, 시계·반시계 방향별 확인, 축·극성 감지, 임시 설정 검증. |
+| `web/i18n.js`, `web/translations.js` | 영어·한국어·일본어 UI와 언어 선택. |
+| `web/overlay.html`, `web/overlay.js` | OBS 브라우저 소스 출력. |
+| `web/demo.json` | 합성 데모. 게임 채보나 게임 에셋은 포함하지 않음. |
+| `obs-lift-trace.lua` | 선택적인 OBS 설정, 시작, 소스 배치. |
+| `start-obs-bridge.ps1` | 창을 띄우지 않는 시작, 같은 폴더의 EXE 선택, 서버 재사용, OBS 소유권. |
+| `tests/` | Python 프로토콜·생명주기·입력 테스트와 JavaScript 동작 테스트. |
+| `tools/build_release.py` | 소스 배포 파일의 명시적 허용 목록, 매니페스트, 압축 파일 체크섬. |
+| `tools/build_windows.py`, `requirements-build.txt` | Windows 패키징과 버전이 고정된 빌드 전용 의존성. |
+| `tools/prepare_runtime.py`, `tools/python-runtime.json` | 고정된 공식 Windows Python과 공개된 출처 자료를 작업 폴더에 다운로드·압축 해제. |
+| `tools/runtime_provenance.py` | 공식 압축 파일 메타데이터, 추출한 파일, 패키징된 런타임 바이너리 검증. |
+| `tools/smoke_windows.py` | Windows ZIP을 푼 상태의 실행 검사와 가상 OBS 부모 프로세스를 이용한 생명주기 검사. |
 
-The settings page is a client of the server, not the owner of native input polling. Closing a browser tab must not stop native input. The desktop manager and OBS helper own only the server processes they created; reuse never transfers shutdown ownership.
+설정 페이지는 서버의 클라이언트이며 네이티브 입력 폴링을 소유하지 않습니다. 브라우저 탭을 닫아도 네이티브 입력이 멈추면 안 됩니다. 데스크톱 관리 창과 OBS 도우미는 자신이 만든 서버 프로세스만 소유합니다. 기존 서버를 재사용해도 종료 권한이 넘어오지는 않습니다.
 
-## Design constraints
+## 설계 제약
 
-- Keep native input acquisition independent of browser focus.
-- Express motion in elapsed time, not frames. Overlay height must not change velocity.
-- Keep `manualOverlayHeight` separate from the effective `overlayHeight`. Automatic mode derives height from LIFT; missing legacy modes migrate to automatic without losing the previous manual value. LIFT 0 must render no visible input-note area.
-- Keep `getObsPlacement()` and OBS Lua placement calculations consistent: fixed 75/1413 X origins, Y from LIFT and 723 px reference, then saved integer offsets. Custom width/manual height must not shift the origin. The 2P origin is a mirrored reference, not confirmed capture geometry.
-- Apply the 1080p width/ratio preset only on explicit user action. Preserve game values, side, input mapping and manual height; reset only position offsets along with lane sizes.
-- Scene placement changes only on explicit OBS apply or user transform edits. Preserve existing script manual X/Y when introducing the app-position option.
-- Preserve actual input semantics: a long hold does not identify a chart long note.
-- Handle button release, axis wraparound and device loss without stuck input states.
-- Keep manual mapping configurable; guided setup must not assume one controller's button IDs or scratch-axis sign. Normalize scratch direction to `+1` clockwise and `-1` counterclockwise with `scratchInvert`.
-- Check clockwise and counterclockwise movement separately on the same wrapping axis. Retrying direction setup keeps the seven keys but clears both direction samples. Prompts describe directions as viewed from above. The physical meaning depends on following those prompts.
-- Keep the clockwise ↻ / counterclockwise ↺ arrows and distinct light/deep coral colors consistent in both overlay and preview. Direction changes must remain visible in adjacent scratch segments.
-- Apply guided mapping only after review. Cancel, disconnect and device changes must not save an incomplete draft.
-- Bind to loopback only and keep settings private and local.
-- Keep unrelated integrations, personal paths and private OBS configuration outside both public artifacts.
-- The public OBS helper starts only the overlay. It must not discover or launch unrelated service scripts placed beside it.
-- Give ordinary users one executable entry point. Do not add a Python, pip or terminal step to the user installation path.
+- 네이티브 입력 수집은 브라우저 포커스와 독립적으로 유지합니다.
+- 움직임은 프레임 수가 아닌 경과 시간으로 계산합니다. 오버레이 높이가 속도를 바꾸면 안 됩니다.
+- 저장된 `manualOverlayHeight`와 실제 적용되는 `overlayHeight`를 구분합니다. 자동 모드는 LIFT로 높이를 계산합니다. 모드 값이 없는 이전 설정은 기존 수동 높이를 잃지 않고 자동 모드로 이전합니다. LIFT 0에서는 입력 노트 영역이 보이지 않아야 합니다.
+- `getObsPlacement()`와 OBS Lua의 위치 계산을 일치시킵니다. X 기준값은 75/1413으로 고정하고, Y는 LIFT와 723px 기준 높이로 계산한 뒤 저장된 정수 이동값을 더합니다. 사용자 지정 너비나 수동 높이가 시작 위치를 옮기면 안 됩니다. 2P의 시작 위치는 실제 캡처로 확인한 좌표가 아니라 좌우 대칭 기준값입니다.
+- 1080p 너비·비율 프리셋은 사용자가 명시적으로 실행할 때만 적용합니다. 게임 수치, 플레이 위치, 입력 매핑, 수동 높이는 보존하고, 레인 크기를 맞추면서 위치 이동값만 초기화합니다.
+- 장면 배치는 OBS에서 명시적으로 적용하거나 사용자가 변환을 편집할 때만 바뀝니다. 앱 위치 사용 옵션을 추가할 때 기존 스크립트의 수동 X/Y를 보존합니다.
+- 실제 입력의 의미를 유지합니다. 오래 누른 입력만으로 게임 채보의 롱노트인지 알 수는 없습니다.
+- 버튼 해제, 회전축 값의 순환, 장치 연결 해제 시 입력이 계속 눌린 상태로 남지 않게 합니다.
+- 수동 매핑을 설정할 수 있게 유지합니다. 단계별 설정에서 특정 컨트롤러의 버튼 ID나 스크래치 축 부호를 가정하지 않습니다. `scratchInvert`를 통해 시계방향은 `+1`, 반시계방향은 `-1`로 정규화합니다.
+- 값이 순환하는 같은 축에서 시계방향과 반시계방향을 각각 확인합니다. 방향 설정을 재시도하면 건반 7개의 설정은 유지하고 두 방향의 표본은 지웁니다. 안내는 턴테이블을 위에서 내려다본 방향을 설명합니다. 실제 회전 방향과의 일치는 사용자가 이 안내를 따라야 성립합니다.
+- 오버레이와 미리보기에서 시계방향 ↻ / 반시계방향 ↺ 화살표와 서로 다른 연한·진한 산호색을 일치시킵니다. 인접한 스크래치 구간에서도 방향 전환을 구분할 수 있어야 합니다.
+- 단계별 매핑은 결과를 확인한 뒤에만 적용합니다. 취소, 연결 해제, 장치 변경 시 미완성 설정을 저장하면 안 됩니다.
+- 루프백 주소에만 바인딩하고 설정은 로컬에 비공개로 보관합니다.
+- 관련 없는 연동, 개인 경로, 비공개 OBS 설정을 공개 소스와 Windows 배포본 모두에서 제외합니다.
+- 공개 OBS 도우미는 오버레이만 시작합니다. 옆에 놓인 관련 없는 서비스 스크립트를 검색하거나 실행하면 안 됩니다.
+- 일반 사용자에게는 하나의 실행 파일을 진입점으로 제공합니다. 사용자 설치 절차에 Python, pip, 터미널 단계를 추가하지 않습니다.
 
-See [Technical reference](REFERENCE.md) for the speed model, compatibility evidence and input-display limitations.
+속도 모델, 호환성 근거, 입력 표시의 한계는 [기술 참고](REFERENCE.md)를 보세요.
 
-## Build the Windows app
+## Windows 앱 빌드
 
-Build on **Windows x64**. The public Windows build uses the official **Python 3.13.16 x64** distribution pinned in `tools/python-runtime.json`. An existing Python 3.10+ can run the preparation command. Source execution still supports Python 3.10+; ordinary app users receive the runtime in the ZIP.
+**Windows x64**에서 빌드합니다. 공개 Windows 빌드는 `tools/python-runtime.json`에 고정된 공식 **Python 3.13.16 x64** 배포본을 사용합니다. 준비 명령은 기존 Python 3.10 이상으로 실행할 수 있습니다. 소스 실행은 계속 Python 3.10 이상을 지원하며, 일반 앱 사용자에게는 ZIP에 런타임을 함께 제공합니다.
 
-Start in a clean checkout without an existing `.venv-build`. The preparation command downloads Python and its matching metadata from python.org, checks the pinned hashes and extracts it under `artifacts/python-runtime/`. It does not install Python system-wide or change PATH, registry entries or file associations.
+기존 `.venv-build`가 없는 깨끗한 체크아웃에서 시작하세요. 준비 명령은 python.org에서 Python과 일치하는 메타데이터를 받고, 고정된 해시를 확인한 뒤 `artifacts/python-runtime/`에 압축을 풉니다. 시스템 전체에 Python을 설치하거나 PATH, 레지스트리, 파일 연결을 바꾸지 않습니다.
 
 ```powershell
 python tools/prepare_runtime.py
@@ -108,40 +110,40 @@ artifacts\python-runtime\python\python.exe -m venv .venv-build
 python tools/smoke_windows.py
 ```
 
-The Windows ZIP contains a `LiftTrace/` folder with `LiftTrace.exe`, its `_internal/` dependencies, OBS scripts, documentation and third-party license notices. Keep that directory structure intact. A source-only archive can be built without PyInstaller:
+Windows ZIP에는 `LiftTrace.exe`, `_internal/` 의존성, OBS 스크립트, 문서, 제삼자 라이선스 고지가 들어 있는 `LiftTrace/` 폴더가 포함됩니다. 이 폴더 구조를 유지하세요. 소스 전용 압축 파일은 PyInstaller 없이 만들 수 있습니다.
 
 ```sh
 python tools/build_release.py
 ```
 
-The default output directory is `artifacts/`; the source builder also accepts `--output-dir PATH`. The smoke script accepts an optional ZIP path. Build final source and binary from the same revision, then check the [release checklist](RELEASING.md).
+기본 출력 폴더는 `artifacts/`이며, 소스 빌더는 `--output-dir PATH`도 지원합니다. 기본 실행 검사 스크립트에는 선택적으로 ZIP 경로를 지정할 수 있습니다. 최종 소스와 바이너리를 같은 리비전에서 만든 뒤 [릴리스 체크리스트](RELEASING.md)를 확인하세요.
 
-Keep `artifacts/python-runtime/downloads/` beside the extracted `python/` folder while building. It contains the pinned archive, official Windows manifest and SPDX software bill of materials (SBOM), which identifies the distribution's components. The builder compares the extracted originals with the official ZIP and checks the packaged DLL/PYD files against those originals. Do not reuse a virtual environment created from another Python installation; create a fresh build environment instead.
+빌드 중에는 `artifacts/python-runtime/downloads/`를 추출한 `python/` 폴더 옆에 유지하세요. 고정된 압축 파일, 공식 Windows 매니페스트, 배포본 구성요소를 식별하는 SPDX 소프트웨어 자재 명세서(SBOM)가 들어 있습니다. 빌더는 추출한 원본을 공식 ZIP과 비교하고, 패키징된 DLL/PYD를 그 원본과 대조합니다. 다른 Python 설치에서 만든 가상 환경을 재사용하지 말고 새 빌드 환경을 만드세요.
 
-`--require-verified-runtime` stops the build if runtime provenance remains unresolved. An ordinary prototype build can report unresolved components, but that is not a successful publication check. See [Validation](VALIDATION.md) for completed runs. The source ZIP does not bundle a Python runtime.
+`--require-verified-runtime`은 런타임 출처를 확인하지 못하면 빌드를 중단합니다. 일반적인 프로토타입 빌드는 확인되지 않은 구성요소를 기록할 수 있지만, 이것이 배포용 검증을 통과했다는 뜻은 아닙니다. 완료된 실행 기록은 [검증 현황](VALIDATION.md)을 보세요. 소스 ZIP에는 Python 런타임을 넣지 않습니다.
 
-## Manual verification
+## 수동 확인
 
-Use [Validation](VALIDATION.md) for the current evidence, a first-time-user check and a short report template. Keep observed results separate from planned checks. AI review or synthetic input cannot confirm physical direction, game timing or natural language quality for actual readers.
+현재 근거, 처음 사용하는 사람을 위한 확인 절차, 짧은 보고 양식은 [검증 현황](VALIDATION.md)을 보세요. 관찰한 결과와 앞으로 할 검사는 구분합니다. AI 검토나 합성 입력만으로 실제 회전 방향, 게임 타이밍, 실제 독자가 느끼는 문장의 자연스러움을 확인할 수는 없습니다.
 
-For a UI change, walk through the user guide from a newly extracted Windows ZIP, including the language selector, guided setup cancel/apply, input preview, OBS URL copy and settings export/import. Check the small desktop window separately from the browser. Do not require a terminal to recover from a typical startup failure.
+UI를 바꿨다면 새로 압축을 푼 Windows ZIP에서 사용 안내를 따라가며 언어 선택, 단계별 설정의 취소·적용, 입력 미리보기, OBS 주소 복사, 설정 내보내기·가져오기를 확인합니다. 작은 데스크톱 창은 브라우저와 별도로 확인합니다. 일반적인 시작 실패를 해결하기 위해 터미널을 요구하면 안 됩니다.
 
-For timing changes, test short/held keys, chords, repeated taps, both scratch directions, a reversal, disconnection and two manual overlay heights with the same speed. Check black/transparent backgrounds and 1P/2P layouts. Also verify LIFT 401 gives automatic height 290, mode changes preserve the saved manual height, LIFT 0 shows no automatic input-note area, and legacy settings migrate without losing the custom value. Set a positive LIFT or a manual height before visually checking the synthetic demo.
+타이밍을 바꿨다면 짧게·길게 누르기, 동시 입력, 반복 입력, 양쪽 스크래치 방향, 방향 전환, 연결 해제, 같은 속도에서 서로 다른 두 수동 높이를 테스트합니다. 검정·투명 배경과 1P/2P 배치도 확인합니다. LIFT 401에서 자동 높이가 290인지, 모드 전환 시 저장된 수동 높이가 유지되는지, LIFT 0에서 자동 입력 노트 영역이 보이지 않는지, 이전 설정을 옮겨도 사용자 지정값이 남는지 확인합니다. 합성 데모를 눈으로 확인할 때는 LIFT를 0보다 크게 하거나 수동 높이를 설정합니다.
 
-For position changes, check 1P/2P, LIFT 0/401/999, positive/negative offsets, and invariance under custom width/manual height/green/SUDDEN edits. Verify the 1080p preset preserves input mapping and game values while resetting offsets. Check width/height copies in Browser Source properties separately from X/Y copies in Edit Transform. Test new app-position defaults, old manual-position migration and all app/manual size/position combinations in OBS Lua. Applying placement must use top-left alignment, 100% scale, no bounds scaling and zero crop. UI settings changes alone must not move an OBS scene.
+위치를 바꿨다면 1P/2P, LIFT 0/401/999, 양수·음수 이동값을 확인하고 사용자 지정 너비·수동 높이·녹숫·SUDDEN+를 편집해도 시작 위치가 바뀌지 않는지 확인합니다. 1080p 프리셋이 입력 매핑과 게임 수치를 보존하면서 이동값을 초기화하는지 확인합니다. 브라우저 소스 속성의 너비·높이 복사와 변환 편집의 X/Y 복사는 각각 확인합니다. OBS Lua에서 새 앱 위치 기본값, 이전 수동 위치의 이전 처리, 앱·수동 크기와 위치의 모든 조합을 테스트합니다. 배치 적용 시 왼쪽 상단 정렬, 100% 크기, 경계에 맞춘 크기 조정 없음, 자르기 0을 사용해야 합니다. 앱 UI 설정만 바꿔서는 OBS 장면이 움직이면 안 됩니다.
 
-For lifecycle changes, test a new standalone server and a preexisting server that must survive manager closure. Test idle OBS starting its own server and stopping it on exit, then repeat with a standalone server that must remain. Verify both packaged-EXE selection and source-Python fallback. Do not start streaming or recording to perform this check.
+실행·종료 처리를 바꿨다면 새 독립 서버와 관리 창을 닫아도 살아 있어야 하는 기존 서버를 테스트합니다. 서버가 없는 상태에서 OBS가 서버를 시작하고 종료 시 멈추는지 확인한 뒤, 이미 실행 중인 독립 서버가 유지되는지도 반복 확인합니다. 패키징된 EXE 선택과 소스 Python 대체 실행을 모두 확인합니다. 이를 위해 방송이나 녹화를 시작할 필요는 없습니다.
 
-For controller changes, test both device axis polarities through the complete clockwise-then-counterclockwise setup. Check same-direction rejection, ambiguous axes, wraparound, retry, cancel, reload and direction changes in displayed notes. Record the model, mode, Windows axis/button details and exactly what was tested. Distinguish ordinary device input checks from simultaneous use with INFINITAS and captured timing. The automated packaged smoke check uses a synthetic parent and does not replace actual OBS or hardware checks.
+컨트롤러 처리를 바꿨다면 축의 부호가 반대인 두 경우에 대해 시계방향 다음 반시계방향으로 전체 설정을 진행합니다. 같은 방향 입력의 거부, 여러 축 후보, 축 값의 순환, 재시도, 취소, 새로고침, 표시 노트의 방향 전환을 확인합니다. 모델, 모드, Windows 축·버튼 정보, 실제로 테스트한 내용을 기록합니다. 일반 장치 입력 확인과 INFINITAS 동시 사용·캡처 타이밍 확인은 구분합니다. 자동 패키지 기본 검사는 가상 부모 프로세스를 사용하므로 실제 OBS나 장치 검사를 대신하지 못합니다.
 
-## Licenses and release hygiene
+## 라이선스와 배포 파일 관리
 
-Project code is MIT licensed. Python, Tcl/Tk, PyInstaller's redistributed components and any other bundled runtime files keep their own applicable terms. The Windows builder collects notices; review them rather than describing the entire executable as solely MIT.
+프로젝트 코드는 MIT 라이선스입니다. Python, Tcl/Tk, 재배포되는 PyInstaller 구성요소와 그 밖의 런타임 파일에는 각자의 조건이 적용됩니다. Windows 빌더가 고지를 수집하므로 이를 검토하고, 실행 파일 전체가 오직 MIT 라이선스라고 설명하지 마세요.
 
-The runtime pin connects the downloaded distribution to its official manifest and SBOM; the binary comparisons connect the packaged runtime to that distribution. Notice collection uses the matching component information. The package retains the SBOM as `provenance/python-runtime.spdx.json` and records source URLs, hashes and binary mappings in `MANIFEST.json`. The upstream SBOM also describes tools and dependencies for other platforms; its full package list is not a list of everything bundled in Lift Trace.
+런타임 고정 정보는 다운로드한 배포본을 공식 매니페스트·SBOM과 연결하고, 바이너리 비교는 패키징된 런타임을 그 배포본과 연결합니다. 라이선스 고지를 모을 때도 일치하는 구성요소 정보를 사용합니다. 패키지는 SBOM을 `provenance/python-runtime.spdx.json`에 보관하고 출처 URL, 해시, 바이너리 대응 관계를 `MANIFEST.json`에 기록합니다. 업스트림 SBOM에는 다른 플랫폼의 도구와 의존성도 있으므로, 전체 패키지 목록을 Lift Trace에 들어 있는 모든 파일의 목록으로 해석하면 안 됩니다.
 
-`bundledRuntime.runtimeProvenanceVerified` records traceability to the official distributor, not an independently reproduced build, security audit or legal certification. Keep unresolved components visible in the manifest until evidence supports the match. A successful ordinary build or CI artifact does not substitute for the publication check.
+`bundledRuntime.runtimeProvenanceVerified`는 공식 배포자까지의 추적 가능성을 기록합니다. 독립적인 빌드 재현, 보안 감사, 법적 인증을 뜻하지는 않습니다. 일치한다는 근거를 확보할 때까지 미확인 구성요소를 매니페스트에 남겨 두세요. 일반 빌드나 CI 아티팩트 생성에 성공한 것으로 배포용 검증을 대신할 수 없습니다.
 
-To change the release runtime, review the new official archive, manifest and SBOM together before updating `tools/python-runtime.json`. Use a new runtime directory and build environment, rerun provenance and package checks, then update the recorded validation. Do not replace a failed hash check with a newly calculated hash merely to make the download pass.
+배포 런타임을 바꾸려면 `tools/python-runtime.json`을 수정하기 전에 새 공식 압축 파일, 매니페스트, SBOM을 함께 검토합니다. 새 런타임 폴더와 빌드 환경에서 출처·패키지 검사를 다시 실행하고 검증 기록을 갱신하세요. 다운로드를 통과시키려는 목적으로 실패한 해시를 새로 계산한 값으로 바꾸면 안 됩니다.
 
-The release builders use explicit source lists. Do not replace them with a recursive copy of the checkout. Exclude `data/`, logs, caches, virtual environments, user settings, private paths, OBS profiles, credentials, game files and captures. New public documents or tests must be added to the appropriate allowlist.
+배포 빌더는 파일 목록을 명시적으로 사용합니다. 체크아웃 전체를 재귀 복사하는 방식으로 바꾸지 마세요. `data/`, 로그, 캐시, 가상 환경, 사용자 설정, 개인 경로, OBS 프로필, 자격 증명, 게임 파일과 캡처는 제외합니다. 새로운 공개 문서나 테스트는 해당 허용 목록에 추가해야 합니다.

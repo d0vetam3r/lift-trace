@@ -1,27 +1,29 @@
-# Security and local data
+# 보안과 로컬 데이터
 
-Lift Trace is a local prototype. Its HTTP server binds to `127.0.0.1` for OBS and a browser on the same PC. Do not expose it through port forwarding or a public proxy; it is not designed for untrusted network clients.
+[한국어](SECURITY.md) · [日本語](SECURITY.ja.md) · [English](SECURITY.en.md)
 
-The runtime reads a selected controller and serves the overlay. It does not require account credentials, game-memory access, administrator privileges or input connections from an iPad or another device. The desktop manager and OBS helper stop only servers they started. An existing healthy server is reused without taking ownership.
+Lift Trace는 같은 PC에서 사용하는 초기 시험판입니다. 내부 HTTP 서버는 `127.0.0.1`에서만 연결을 받아 OBS와 브라우저에 화면을 제공합니다. 외부 기기의 접속을 전제로 설계하지 않았으므로, 포트 포워딩이나 공개 프록시로 외부에 노출하지 마세요.
 
-## Windows downloads
+프로그램은 선택한 컨트롤러의 입력을 읽고 오버레이를 표시합니다. 계정 비밀번호, 게임 메모리 접근, 관리자 권한, 아이패드 등 다른 기기의 입력 연결은 필요하지 않습니다. 데스크톱 관리 창과 OBS 연동 기능은 자신이 시작한 서버만 종료합니다. 이미 정상적으로 실행 중인 서버가 있으면 그대로 이용하며, 그 서버를 종료하지는 않습니다.
 
-Download the Windows ZIP from this project's GitHub **Releases → Assets**. It includes the Python runtime, so users do not need a separate Python installation. The source ZIP is for contributors.
+## Windows 다운로드
 
-The current app is an **unsigned prototype**. If Windows or security software blocks it, do not disable protections or elevate the application to bypass the block. Confirm the source of the download and report the exact message to the maintainer. Published SHA-256 hashes can detect a damaged or changed archive; they do not establish publisher identity by themselves.
+이 프로젝트의 GitHub **Releases → Assets**에서 Windows ZIP을 받으세요. Python 실행 환경이 포함되어 있어 Python을 따로 설치할 필요가 없습니다. 소스 ZIP은 개발에 참여하려는 사람을 위한 파일입니다.
 
-The bundled runtimes retain their own licenses. The verified Windows build includes matching notices and records how its runtime files match the pinned official Python distribution. See [Validation](docs/VALIDATION.md) for the check's scope. This verifies distributor traceability and file integrity, not security or application quality. Custom-runtime builds can still report unresolved provenance. Build dependencies are maintained separately from user installation instructions.
+현재 앱은 **코드 서명이 없는 초기 시험판**입니다. Windows나 보안 프로그램이 실행을 막으면, 보안 기능을 끄거나 관리자 권한으로 실행해 차단을 우회하지 마세요. 다운로드 출처를 확인하고, 표시된 문구를 그대로 프로젝트 관리자에게 알려주세요. 공개된 SHA-256 해시로 파일의 손상이나 변경 여부를 확인할 수 있지만, 해시만으로 배포자의 신원을 확인할 수는 없습니다.
 
-## Diagnostics
+함께 배포되는 런타임에는 각자의 라이선스가 적용됩니다. 검증된 Windows 빌드에는 해당 라이선스 고지가 들어 있으며, 런타임 파일이 지정된 공식 Python 배포본과 일치하는지 확인한 기록이 포함됩니다. 검사 범위는 [검증 현황](docs/VALIDATION.md)을 참고하세요. 이 검사는 배포 출처와 파일 무결성을 확인하며, 보안이나 앱의 품질을 보증하지는 않습니다. 별도의 런타임으로 만든 빌드에는 출처를 확인하지 못한 항목이 남을 수 있습니다. 빌드에 필요한 도구는 일반 사용자의 설치 안내와 분리해 관리합니다.
 
-Settings and logs are created in `data/` beside the app by default. If that folder cannot be written, a startup log may be saved under `%TEMP%/LiftTrace/`. Logs can include usernames, paths and device details. Review relevant excerpts before attaching them to a public issue; do not share the entire working folder.
+## 진단 정보
 
-Use a clean release archive for redistribution. The release allowlists exclude local settings, private credentials, game assets, captures and unrelated services.
+설정과 로그는 기본적으로 앱 옆의 `data/` 폴더에 저장됩니다. 해당 폴더에 쓸 수 없으면 시작 로그가 `%TEMP%/LiftTrace/`에 저장될 수 있습니다. 로그에는 사용자 이름, 경로, 장치 정보가 포함될 수 있습니다. 공개 이슈에 첨부하기 전에 관련 부분을 확인하고, 작업 폴더 전체를 공유하지 마세요.
 
-The code and documentation were developed with extensive AI assistance. Neither that disclosure nor passing automated tests is a security audit. Completed checks and unverified areas are listed in [Validation](docs/VALIDATION.md).
+재배포할 때는 개인 설정이 없는 릴리스 압축 파일을 사용하세요. 배포 파일 목록에는 로컬 설정, 비공개 인증 정보, 게임 자료, 화면 캡처, 관련 없는 서비스가 포함되지 않습니다.
 
-## Reporting a vulnerability
+코드와 문서 작성에는 AI 도구를 폭넓게 활용했습니다. 이 사실을 공개하거나 자동 검사를 통과했다는 것만으로 보안 감사를 받은 것은 아닙니다. 완료한 검사와 미확인 항목은 [검증 현황](docs/VALIDATION.md)에 기록합니다.
 
-Use the hosting repository's private vulnerability-reporting channel if one is available. This release does not define a separate security address. If no private channel is listed, request one without disclosing vulnerability details. Do not post credentials, personal data or a working exploit in a public issue while seeking a private route.
+## 취약점 제보
 
-No long-term support or security-update schedule is promised for this prototype. Reports should identify the exact version and whether the problem affects the Windows app, source execution or both.
+저장소에 비공개 취약점 제보 창구가 있으면 이용해 주세요. 이 릴리스에는 별도의 보안 연락처가 지정되어 있지 않습니다. 비공개 창구가 안내되어 있지 않다면 취약점의 세부 내용을 공개하지 말고 먼저 연락 방법을 요청하세요. 그 과정에서 인증 정보, 개인 정보, 실제로 악용할 수 있는 코드를 공개 이슈에 올리지 마세요.
+
+이 초기 시험판은 장기 지원이나 정기적인 보안 업데이트 일정을 약속하지 않습니다. 제보에는 정확한 버전과 함께 Windows 앱, 소스 실행, 또는 둘 모두에 해당하는 문제인지 적어 주세요.

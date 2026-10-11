@@ -1,40 +1,59 @@
 # Lift Trace
 
-[English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[한국어](README.md) · [日本語](README.ja.md) · [English](README.en.md)
 
-Show your **beatmania IIDX INFINITAS** key presses and scratch movements in OBS. Each key press or scratch movement creates an input note that falls below the game's judgment line. These notes show your controller inputs; they are not read from the game chart.
+**beatmania IIDX INFINITAS 방송을 위한 OBS 입력 오버레이입니다.**
 
-**Prototype.** For Windows 10/11 (64-bit). English, Korean and Japanese are available.
+누른 건반과 돌린 스크래치를 **판정선 아래의 LIFT 영역**에 입력 노트로 표시합니다. 게임 레인과 위치·속도를 맞추면, 게임 노트가 판정선을 지난 뒤에도 자신의 입력으로 이어져 내려오는 모습을 방송에 보여줄 수 있습니다.
 
-AI tools have been used extensively to develop the code and documentation. This is an early prototype; see [validation status and known gaps](docs/VALIDATION.md) for what has been checked and what still needs real-world testing and human review.
+**[Windows 앱 다운로드](https://github.com/d0vetam3r/lift-trace/releases/latest)** · [처음부터 따라 하는 사용 안내](docs/USER_GUIDE.ko.md)
 
-## I want to use it
+![판정선 아래로 입력 노트가 떨어지는 동작 예시](docs/images/lift-trace-demo.gif)
 
-**No programming, Python installation or command typing is needed.**
+*동작 설명용 데모입니다. 판정선 위의 게임 노트는 예시이며, 아래쪽에는 Lift Trace의 입력 노트가 표시됩니다. 실제 게임 플레이를 녹화한 영상은 아닙니다.*
 
-**[Download the Windows app](https://github.com/d0vetam3r/lift-trace/releases/latest)** from the latest release.
+## 시작하기
 
-1. On this GitHub page, open **Releases**, then the latest version's **Assets**.
-2. Download the file whose name starts with `lift-trace-windows-x64-` and ends with `.zip`. The numbers in between are the version and may change.
-3. Right-click the downloaded file → **Extract All**. Open the extracted **LiftTrace** folder and double-click **LiftTrace.exe**.
-4. Follow the [step-by-step user guide](docs/USER_GUIDE.en.md): enter the game's numbers, set up the controller, then copy the address into OBS.
+Windows 10/11(64비트), OBS Studio, INFINITAS, 호환 컨트롤러가 필요합니다. **Python 설치나 명령어 입력은 필요하지 않습니다.**
 
-The guide explains which buttons to click and what to check at each step. LIFT sets the overlay height automatically; you can also set the height manually. For a fullscreen 1080p game capture, use the lane-size preset and copy the calculated positions into OBS.
+1. [최신 버전](https://github.com/d0vetam3r/lift-trace/releases/latest)의 **Assets**를 펼칩니다. 이름이 `lift-trace-windows-x64-`로 시작하고 `.zip`으로 끝나는 파일을 받습니다.
+2. ZIP 파일을 오른쪽 클릭하고 **압축 풀기**를 누릅니다. 압축을 푼 **LiftTrace** 폴더에서 **LiftTrace.exe**를 더블클릭합니다.
+3. 게임에서 쓰는 녹숫·LIFT·SUDDEN+를 입력합니다. **입력 소스**를 **컨트롤러 · 게임 중에도 입력 감지**로 바꾸고 자신의 장치를 선택한 뒤, **컨트롤러 설정** 안내를 따릅니다. 턴테이블이 왼쪽이면 **1P**, 오른쪽이면 **2P**를 선택합니다.
+4. [OBS 설정 안내](docs/USER_GUIDE.ko.md#4-obs에-주소와-크기-붙여넣기)에 따라 오버레이 주소, 크기, 위치를 OBS에 복사합니다.
 
-You need OBS Studio, INFINITAS and a compatible controller separately. Keep the extracted folder's files together. If the app will not open, see [help](docs/USER_GUIDE.en.md#troubleshooting).
+압축을 푼 폴더의 파일은 함께 보관하세요. 안내서는 게임 화면이 OBS에 이미 보이는 상태에서 시작하며, 이후 누를 버튼과 확인할 결과를 순서대로 설명합니다.
 
-## I want to contribute
+## 주요 기능
 
-Clone this repository or download the `lift-trace-source-*.zip` asset from Releases (`*` is the version number). The Windows app is built from the same source.
+- **건반 입력:** 7개 레인에 입력 노트를 표시합니다. 건반을 누르고 있는 동안에는 노트가 길게 이어집니다.
+- **스크래치 방향 구분:** 시계방향 ↻은 연한 산호색, 반시계방향 ↺은 진한 산호색입니다. 방향을 바꾸면 화살표와 색이 함께 바뀝니다.
+- **높이와 속도 조절:** 녹숫·LIFT·SUDDEN+로 낙하 속도를 계산합니다. 높이는 LIFT에 맞추거나 직접 정할 수 있으며, 표시 높이만 바꾸면 속도는 유지됩니다.
+- **OBS 배치와 실행:** 주소·너비·높이·X/Y 위치를 복사할 수 있습니다. 선택 사항인 OBS 연동을 설정하면 OBS와 함께 켜지고, OBS가 시작한 오버레이는 OBS를 닫을 때 함께 종료됩니다.
 
-[Development](docs/DEVELOPMENT.md) · [Contributing](CONTRIBUTING.md) · [Technical reference](docs/REFERENCE.md) · [Validation](docs/VALIDATION.md) · [Releasing](docs/RELEASING.md)
+입력 노트는 컨트롤러 조작을 표시하며, 게임 채보나 판정을 읽지는 않습니다. 계산은 게임이 **1920 × 1080 OBS 화면 전체**를 채우는 구성을 기준으로 합니다. 2P 위치는 좌우 대칭으로 계산한 시작값이며, 실제 화면에 맞게 조절할 수 있습니다.
 
-The source ZIP and GitHub's “Source code” downloads are for contributors; users should choose the Windows ZIP above.
+## 필요한 안내 찾기
 
-## About the project
+| 하고 싶은 일 | 안내 |
+| --- | --- |
+| 건반과 턴테이블 설정 | [컨트롤러 설정](docs/USER_GUIDE.ko.md#3-안내에-따라-건반과-스크래치-설정하기) |
+| 게임 레인에 오버레이 맞추기 | [OBS 위치 맞추기](docs/USER_GUIDE.ko.md#5-복사한-숫자로-위치-맞추기) |
+| LIFT·높이·1P/2P 바꾸기 | [크기와 위치 다시 맞추기](docs/USER_GUIDE.ko.md#높이나-플레이-위치를-바꿨다면) |
+| OBS와 함께 실행하기 | [자동 실행 설정](docs/USER_GUIDE.ko.md#선택-사항-obs와-같이-켜기) |
+| 업데이트하거나 삭제하기 | [업데이트와 삭제](docs/USER_GUIDE.ko.md#업데이트와-삭제) |
 
-The current display assumes a fullscreen game in a **1920 × 1080 OBS canvas**. Changing the overlay height does not change its calculated falling speed. Position and timing still need to be matched to your game capture. The tool displays inputs, not game judgments.
+## 도움이 필요하다면
 
-Project code is [MIT licensed](LICENSE). Bundled runtimes retain their own licenses. [Changelog](CHANGELOG.md) · [Security and local data](SECURITY.md)
+먼저 [문제 해결](docs/USER_GUIDE.ko.md#문제-해결)을 확인하세요. 해결되지 않으면 [Issues](https://github.com/d0vetam3r/lift-trace/issues)에 진행한 단계, 오류 문구, 컨트롤러 모델을 알려주세요. 한국어·일본어·영어로 제보할 수 있습니다.
 
-Lift Trace is an independent project, not affiliated with or endorsed by KONAMI, DJ DAO/GAMO2 or the OBS Project. Product names belong to their respective owners.
+Windows 앱은 **코드 서명이 없는 초기 시험판**입니다. [검증 현황](docs/VALIDATION.md)에 확인한 환경과 아직 확인하지 못한 항목을 기록했습니다. 로그를 공유하기 전에는 [보안과 로컬 데이터](SECURITY.md)를 확인하세요.
+
+## 개발과 프로젝트 정보
+
+Windows 앱과 소스 ZIP은 같은 프로젝트에서 만들어집니다. 기여하려면 저장소를 복제하거나 `lift-trace-source-*.zip`을 받으세요. 바로 실행할 프로그램은 위의 Windows ZIP입니다.
+
+[개발 가이드](docs/DEVELOPMENT.md) · [기여 안내](CONTRIBUTING.md) · [기술 참고](docs/REFERENCE.md) · [릴리스 안내](docs/RELEASING.md) · [변경 이력](CHANGELOG.md)
+
+코드와 문서 작성에 AI 도구를 폭넓게 활용했습니다. 검증 기록에서는 자동 검사, 실제 장치 테스트, 사람의 검토를 구분합니다.
+
+프로젝트 코드는 [MIT 라이선스](LICENSE)이며, 함께 배포되는 런타임에는 각자의 라이선스가 적용됩니다. Lift Trace는 독립 프로젝트로 KONAMI, DJ DAO/GAMO2, OBS Project와 제휴하거나 이들의 승인을 받은 제품이 아닙니다.
