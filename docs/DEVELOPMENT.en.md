@@ -1,0 +1,149 @@
+# Development
+
+[한국어](DEVELOPMENT.md) · [日本語](DEVELOPMENT.ja.md) · [English](DEVELOPMENT.en.md)
+
+[Home](../README.en.md) · [Contributing](../CONTRIBUTING.en.md) · [Validation](VALIDATION.en.md) · [Releasing](RELEASING.en.md)
+
+This document is for contributors. **Windows app users can follow the [user guide](USER_GUIDE.en.md) without installing development tools.**
+
+The repository and `lift-trace-source-<version>.zip` are the source of the Windows app. The executable package is the same app with a bundled runtime, so users can run it without a development environment.
+
+## Run from source
+
+Requirements:
+
+- **Python 3.10+**. The desktop manager uses Tkinter, normally included in the Windows Python installer.
+- **Node.js 18+** for JavaScript tests only.
+- Windows for native controller input and OBS automatic startup; OBS Studio for manual integration checks.
+
+There are no third-party Python or npm packages required to run the source application. From the source root:
+
+```sh
+python desktop.py
+```
+
+This opens the same desktop manager used in the Windows app and a browser settings page. Alternatively, run only the server:
+
+```sh
+python server.py
+```
+
+Then open `http://127.0.0.1:8765/`. Ctrl+C stops this foreground server. `start.bat` remains a convenience for source users; it is not the installation route in user documentation. `bash start.sh` supports the demo/focused-page keyboard path on macOS/Linux, without native controller input or OBS startup support.
+
+The packaged executable supports a headless mode used by the OBS helper; its source equivalent is:
+
+```sh
+python desktop.py --serve --port 8765 --data-dir data
+```
+
+Use a writable `--data-dir` for isolated checks. The manager supports `--language en`, `--language ko` and `--language ja`; the settings page accepts `?lang=en`, `?lang=ko` and `?lang=ja`.
+
+## Test
+
+```sh
+python -m unittest discover -s tests -p "test_*.py" -v
+node --test tests/engine.test.mjs tests/client.test.mjs tests/render.test.mjs tests/i18n.test.mjs tests/setup.test.mjs
+```
+
+Some Python tests open temporary loopback listeners. A restricted environment must permit them. Tests use synthetic input, so they require no controller and cannot verify physical compatibility or game-capture synchronization.
+
+`.github/workflows/verify.yml` runs these checks on Windows and Ubuntu with Python 3.10/3.13 and Node 22. All four combinations passed in the recorded 2026-10-12 push run; see [Validation](VALIDATION.en.md) for the tested commit and run. Cross-platform test success does not add native controller support to non-Windows systems. A manual workflow dispatch is configured to prepare the pinned runtime, build the Windows app with provenance verification, run its smoke check and upload an Actions artifact; it does not publish a release. That Windows build job was skipped in the recorded push run.
+
+## Structure
+
+| Path | Responsibility |
+| --- | --- |
+| `desktop.py` | Desktop manager, localized startup/errors, server ownership, frozen-app paths and headless entry. |
+| `server.py` | Loopback HTTP, SSE, settings and shared demo timing. |
+| `native_input.py` | Windows WinMM enumeration and controller polling. |
+| `web/engine.js` | Input history, scratch tracking and elapsed-time falling positions. |
+| `web/render.js` | Canvas renderer shared by preview and overlay. |
+| `web/client.js` | Server events, settings and input-mode coordination. |
+| `web/index.html`, `web/app.js` | Settings page, preview and guided setup UI. |
+| `web/setup.js` | Controller setup state machine, button releases, separate clockwise/counterclockwise checks, axis/polarity detection and draft validation. |
+| `web/i18n.js`, `web/translations.js` | English, Korean and Japanese UI, language selection. |
+| `web/overlay.html`, `web/overlay.js` | Browser Source output. |
+| `web/demo.json` | Synthetic demonstration; no game chart or game asset. |
+| `obs-lift-trace.lua` | Optional OBS settings, startup and source placement. |
+| `start-obs-bridge.ps1` | Hidden startup, adjacent-EXE selection, server reuse and OBS ownership. |
+| `tests/` | Python protocol/lifecycle/input and JavaScript behavior tests. |
+| `tools/build_release.py` | Explicit source-distribution allowlist, manifest and archive checksums. |
+| `tools/build_windows.py`, `requirements-build.txt` | Windows packaging and pinned build-only dependencies. |
+| `tools/prepare_runtime.py`, `tools/python-runtime.json` | Download and extract the pinned official Windows Python and its published provenance files into the workspace. |
+| `tools/runtime_provenance.py` | Verify official archive metadata, extracted files and packaged runtime binaries. |
+| `tools/smoke_windows.py` | Extracted Windows ZIP startup and synthetic OBS-parent lifecycle checks. |
+
+The settings page is a client of the server, not the owner of native input polling. Closing a browser tab must not stop native input. The desktop manager and OBS helper own only the server processes they created; reuse never transfers shutdown ownership.
+
+## Design constraints
+
+- Keep native input acquisition independent of browser focus.
+- Express motion in elapsed time, not frames. Overlay height must not change velocity.
+- Keep `manualOverlayHeight` separate from the effective `overlayHeight`. Automatic mode derives height from LIFT; missing legacy modes migrate to automatic without losing the previous manual value. LIFT 0 must render no visible input-note area.
+- Keep `getObsPlacement()` and OBS Lua placement calculations consistent: fixed 75/1413 X origins, Y from LIFT and 723 px reference, then saved integer offsets. Custom width/manual height must not shift the origin. The 2P origin is a mirrored reference, not confirmed capture geometry.
+- Apply the 1080p width/ratio preset only on explicit user action. Preserve game values, side, input mapping and manual height; reset only position offsets along with lane sizes.
+- Scene placement changes only on explicit OBS apply or user transform edits. Preserve existing script manual X/Y when introducing the app-position option.
+- Preserve actual input semantics: a long hold does not identify a chart long note.
+- Handle button release, axis wraparound and device loss without stuck input states.
+- Keep manual mapping configurable; guided setup must not assume one controller's button IDs or scratch-axis sign. Normalize scratch direction to `+1` clockwise and `-1` counterclockwise with `scratchInvert`.
+- Check clockwise and counterclockwise movement separately on the same wrapping axis. Retrying direction setup keeps the seven keys but clears both direction samples. Prompts describe directions as viewed from above. The physical meaning depends on following those prompts.
+- Keep the clockwise ↻ / counterclockwise ↺ arrows and distinct light/deep coral colors consistent in both overlay and preview. Direction changes must remain visible in adjacent scratch segments.
+- Apply guided mapping only after review. Cancel, disconnect and device changes must not save an incomplete draft.
+- Bind to loopback only and keep settings private and local.
+- Keep unrelated integrations, personal paths and private OBS configuration outside both public artifacts.
+- The public OBS helper starts only the overlay. It must not discover or launch unrelated service scripts placed beside it.
+- Give ordinary users one executable entry point. Do not add a Python, pip or terminal step to the user installation path.
+
+See [Technical reference](REFERENCE.en.md) for the speed model, compatibility evidence and input-display limitations.
+
+## Build the Windows app
+
+Build on **Windows x64**. The public Windows build uses the official **Python 3.13.16 x64** distribution pinned in `tools/python-runtime.json`. An existing Python 3.10+ can run the preparation command. Source execution still supports Python 3.10+; ordinary app users receive the runtime in the ZIP.
+
+Start in a clean checkout without an existing `.venv-build`. The preparation command downloads Python and its matching metadata from python.org, checks the pinned hashes and extracts it under `artifacts/python-runtime/`. It does not install Python system-wide or change PATH, registry entries or file associations.
+
+```powershell
+python tools/prepare_runtime.py
+artifacts\python-runtime\python\python.exe -m venv .venv-build
+.venv-build\Scripts\python -m pip install -r requirements-build.txt
+.venv-build\Scripts\python tools\build_windows.py --require-verified-runtime
+python tools/smoke_windows.py
+```
+
+The Windows ZIP contains a `LiftTrace/` folder with `LiftTrace.exe`, its `_internal/` dependencies, OBS scripts, documentation and third-party license notices. Keep that directory structure intact. A source-only archive can be built without PyInstaller:
+
+```sh
+python tools/build_release.py
+```
+
+The default output directory is `artifacts/`; the source builder also accepts `--output-dir PATH`. The smoke script accepts an optional ZIP path. Build final source and binary from the same revision, then check the [release checklist](RELEASING.en.md).
+
+Keep `artifacts/python-runtime/downloads/` beside the extracted `python/` folder while building. It contains the pinned archive, official Windows manifest and SPDX software bill of materials (SBOM), which identifies the distribution's components. The builder compares the extracted originals with the official ZIP and checks the packaged DLL/PYD files against those originals. Do not reuse a virtual environment created from another Python installation; create a fresh build environment instead.
+
+`--require-verified-runtime` stops the build if runtime provenance remains unresolved. An ordinary prototype build can report unresolved components, but that is not a successful publication check. See [Validation](VALIDATION.en.md) for completed runs. The source ZIP does not bundle a Python runtime.
+
+## Manual verification
+
+Use [Validation](VALIDATION.en.md) for the current evidence, a first-time-user check and a short report template. Keep observed results separate from planned checks. AI review or synthetic input cannot confirm physical direction, game timing or natural language quality for actual readers.
+
+For a UI change, walk through the user guide from a newly extracted Windows ZIP, including the language selector, guided setup cancel/apply, input preview, OBS URL copy and settings export/import. Check the small desktop window separately from the browser. Do not require a terminal to recover from a typical startup failure.
+
+For timing changes, test short/held keys, chords, repeated taps, both scratch directions, a reversal, disconnection and two manual overlay heights with the same speed. Check black/transparent backgrounds and 1P/2P layouts. Also verify LIFT 401 gives automatic height 290, mode changes preserve the saved manual height, LIFT 0 shows no automatic input-note area, and legacy settings migrate without losing the custom value. Set a positive LIFT or a manual height before visually checking the synthetic demo.
+
+For position changes, check 1P/2P, LIFT 0/401/999, positive/negative offsets, and invariance under custom width/manual height/green/SUDDEN edits. Verify the 1080p preset preserves input mapping and game values while resetting offsets. Check width/height copies in Browser Source properties separately from X/Y copies in Edit Transform. Test new app-position defaults, old manual-position migration and all app/manual size/position combinations in OBS Lua. Applying placement must use top-left alignment, 100% scale, no bounds scaling and zero crop. UI settings changes alone must not move an OBS scene.
+
+For lifecycle changes, test a new standalone server and a preexisting server that must survive manager closure. Test idle OBS starting its own server and stopping it on exit, then repeat with a standalone server that must remain. Verify both packaged-EXE selection and source-Python fallback. Do not start streaming or recording to perform this check.
+
+For controller changes, test both device axis polarities through the complete clockwise-then-counterclockwise setup. Check same-direction rejection, ambiguous axes, wraparound, retry, cancel, reload and direction changes in displayed notes. Record the model, mode, Windows axis/button details and exactly what was tested. Distinguish ordinary device input checks from simultaneous use with INFINITAS and captured timing. The automated packaged smoke check uses a synthetic parent and does not replace actual OBS or hardware checks.
+
+## Licenses and release hygiene
+
+Project code is MIT licensed. Python, Tcl/Tk, PyInstaller's redistributed components and any other bundled runtime files keep their own applicable terms. The Windows builder collects notices; review them rather than describing the entire executable as solely MIT.
+
+The runtime pin connects the downloaded distribution to its official manifest and SBOM; the binary comparisons connect the packaged runtime to that distribution. Notice collection uses the matching component information. The package retains the SBOM as `provenance/python-runtime.spdx.json` and records source URLs, hashes and binary mappings in `MANIFEST.json`. The upstream SBOM also describes tools and dependencies for other platforms; its full package list is not a list of everything bundled in Lift Trace.
+
+`bundledRuntime.runtimeProvenanceVerified` records traceability to the official distributor, not an independently reproduced build, security audit or legal certification. Keep unresolved components visible in the manifest until evidence supports the match. A successful ordinary build or CI artifact does not substitute for the publication check.
+
+To change the release runtime, review the new official archive, manifest and SBOM together before updating `tools/python-runtime.json`. Use a new runtime directory and build environment, rerun provenance and package checks, then update the recorded validation. Do not replace a failed hash check with a newly calculated hash merely to make the download pass.
+
+The release builders use explicit source lists. Do not replace them with a recursive copy of the checkout. Exclude `data/`, logs, caches, virtual environments, user settings, private paths, OBS profiles, credentials, game files and captures. New public documents or tests must be added to the appropriate allowlist.

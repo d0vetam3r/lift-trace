@@ -1,138 +1,143 @@
-# Technical reference
+# 기술 참고 문서
 
-[Home](../README.md) · [User guide](USER_GUIDE.en.md) · [Development](DEVELOPMENT.md) · [Validation](VALIDATION.md)
+[한국어](REFERENCE.md) · [日本語](REFERENCE.ja.md) · [English](REFERENCE.en.md)
 
-This document explains the prototype's model and constraints. It is not required to install the Windows app.
+[처음으로](../README.md) · [사용 설명서](USER_GUIDE.ko.md) · [개발 안내](DEVELOPMENT.md) · [검증 현황](VALIDATION.md)
 
-## Distributions and boundaries
+프로토타입의 계산 방식과 제약을 설명합니다. Windows 앱을 설치하는 데 이 문서를 읽을 필요는 없습니다.
 
-The Windows ZIP contains a desktop launcher, the Python runtime and required application files, bundled runtime notices, public documentation, and optional OBS Lua/PowerShell integration. The source ZIP contains the same project's source, tests and build tools. It contains no installed Python runtime.
+## 배포 구성과 범위
 
-Neither distribution includes the iPad remote server, a combined streaming launcher, personal controller settings, machine-specific paths, OBS profiles, game binaries, music or game images. The schematic in the user guides is original project artwork.
+Windows ZIP에는 실행 창, Python 런타임과 앱 실행에 필요한 파일, 포함된 런타임의 라이선스 안내, 공개 문서, 선택적으로 사용할 OBS Lua/PowerShell 연동이 들어 있습니다. 소스 ZIP에는 같은 프로젝트의 소스 코드, 테스트, 빌드 도구가 들어 있으며 설치된 Python 런타임은 포함하지 않습니다.
 
-The public OBS helper starts only the Lift Trace overlay. It does not search for or launch extra-service scripts beside the app.
+두 배포본 모두 아이패드 리모트 서버, 통합 방송 실행기, 개인 컨트롤러 설정, 특정 PC의 경로, OBS 프로필, 게임 실행 파일, 음악, 게임 이미지를 포함하지 않습니다. 사용 설명서의 도식은 이 프로젝트에서 직접 제작했습니다.
 
-The app is a loopback HTTP server and a Browser Source, not a native OBS DLL plugin. Settings are served at `http://127.0.0.1:8765/`; overlay output is at `http://127.0.0.1:8765/overlay.html`. Browser rendering and native acquisition are separate, so a native device continues supplying input after the settings tab closes.
+공개용 OBS 실행 도우미는 Lift Trace 오버레이만 시작합니다. 앱 옆에서 다른 서비스 실행 스크립트를 찾거나 실행하지 않습니다.
 
-## Speed model
+앱은 같은 PC 안에서 사용하는 HTTP 서버와 OBS 브라우저 소스로 구성됩니다. OBS용 네이티브 DLL 플러그인은 아닙니다. 설정 주소는 `http://127.0.0.1:8765/`, 오버레이 출력 주소는 `http://127.0.0.1:8765/overlay.html`입니다. 브라우저의 화면 표시와 네이티브 장치 입력 수집이 분리되어 있어, 설정 탭을 닫아도 장치 입력은 계속 전달됩니다.
 
-The calculation assumes a fullscreen game on a **1920 × 1080 OBS canvas**, with the Browser Source at **100% transform scale**:
+## 낙하 속도 계산
+
+**1920 × 1080 OBS 캔버스에 게임을 전체화면으로 표시**하고, 브라우저 소스의 **변환 배율이 100%**인 상황을 전제로 합니다.
 
 ```text
-reference lane height at 1080p = 723 px
-visible lane height ≈ 723 × (1000 − LIFT − SUDDEN) / 1000
-visible time ≈ green number / 600 seconds
-speed (px/s) = visible lane height × 600 / green number × speed correction
+1080p 기준 레인 높이 = 723 px
+보이는 레인 높이 ≈ 723 × (1000 − LIFT − SUDDEN) / 1000
+노트가 보이는 시간 ≈ 녹숫 / 600 초
+속도 (px/s) = 보이는 레인 높이 × 600 / 녹숫 × 속도 보정값
 ```
 
-LIFT + SUDDEN must be less than 1000. Example: LIFT 200, SUDDEN 300, green number 300 and correction 1 produce 723 px/s. Changing overlay height from 120 px to 360 px keeps this velocity and reveals a longer part of the input history.
+LIFT + SUDDEN은 1000보다 작아야 합니다. 예를 들어 LIFT 200, SUDDEN 300, 녹숫 300, 보정값 1이면 723 px/s입니다. 오버레이 높이를 120 px에서 360 px로 바꿔도 속도는 같으며, 더 긴 구간의 입력을 보여줍니다.
 
-This is a calibration approximation, not an official game API or an exact reproduction of every game pixel-rounding rule. The reference height was compared with a 1920 × 1080 capture. Input delay and speed correction solve different problems: delay shifts when an input note appears, while correction changes its velocity.
+화면을 맞추기 위한 근사식입니다. 게임의 공식 API나 모든 픽셀 반올림 규칙을 정확히 재현한 것은 아닙니다. 기준 높이는 1920 × 1080 캡처와 대조했습니다. 표시 지연은 입력 노트가 나타나는 시점을 옮기고, 속도 보정은 낙하 속도를 바꿉니다. 두 설정의 역할은 다릅니다.
 
-Overlay dimensions or cropping control the visible area. OBS's vertical transform scaling also scales the apparent velocity. Horizontal lane widths and 1P/2P layout affect horizontal alignment only.
+오버레이 크기와 자르기는 보이는 범위를 정합니다. OBS에서 세로 변환 배율을 바꾸면 보이는 낙하 속도도 함께 바뀝니다. 가로 레인 폭과 1P/2P 배치는 가로 정렬에만 영향을 줍니다.
 
-Green number, LIFT, SUDDEN and BPM are not read from the game. The overlay does not automatically follow changes in actual game speed. Default settings are green number 300, LIFT 0 and SUDDEN 0, not a recommendation for any player's game.
+앱은 게임에서 녹숫, LIFT, SUDDEN, BPM을 읽지 않습니다. 실제 게임 속도가 바뀌어도 자동으로 따라가지 않습니다. 기본값은 녹숫 300, LIFT 0, SUDDEN 0이며, 플레이어에게 권장하는 게임 설정값이 아닙니다.
 
-The model's references are [KONAMI's speed-option explanation](https://p.eagate.573.jp/game/2dx/26/howto/play/option_speed.html) and [masaoblue's INFINITAS simulator analysis](https://note.com/masaoblue/n/n02ecb7426a76).
+계산 방식은 [KONAMI의 속도 옵션 설명](https://p.eagate.573.jp/game/2dx/26/howto/play/option_speed.html)과 [masaoblue의 INFINITAS 시뮬레이터 분석](https://note.com/masaoblue/n/n02ecb7426a76)을 참고했습니다.
 
-## Automatic and manual display height
+## 표시 높이 자동 계산과 수동 설정
 
-The effective output height is separate from the saved manual height:
+실제로 출력하는 높이와 저장된 수동 높이를 따로 관리합니다.
 
 ```text
-heightMode = "auto" (default) or "manual"
-auto height = max(1, round(723 × LIFT / 1000)) px
-manualOverlayHeight = saved custom height, 40–2160 px
-overlayHeight = effective height derived from the selected mode
+heightMode = "auto" (기본값) 또는 "manual"
+자동 높이 = max(1, round(723 × LIFT / 1000)) px
+manualOverlayHeight = 저장된 수동 높이, 40–2160 px
+overlayHeight = 선택한 모드로 계산한 실제 출력 높이
 ```
 
-For LIFT 401, automatic height is 290 px. This uses the same approximate 1080p lane reference as the speed model. It does not measure the captured game's geometry. Width remains configurable and defaults to 400 px for compatibility. The explicit 1080p lane-size preset sets it to the 432 px reference; it is not silently applied to existing settings.
+LIFT 401이면 자동 높이는 290 px입니다. 속도 계산과 같은 1080p 레인 근사값을 사용하며, 캡처된 게임 화면의 크기를 직접 측정하지 않습니다. 너비는 사용자가 바꿀 수 있고, 기존 설정과의 호환성을 위해 기본값 400 px를 유지합니다. **1080p 레인 크기 맞추기**를 누르면 기준값인 432 px로 바뀝니다. 기존 설정에 이 값이 자동 적용되지는 않습니다.
 
-LIFT 0 in automatic mode has no visible input area. The internal 1 px canvas is a transparent technical placeholder, not a recommended display height. The UI asks users to enter their game's LIFT or choose a manual height before checking falling input notes.
+자동 모드에서 LIFT가 0이면 입력을 표시할 공간이 없습니다. 내부의 1 px 캔버스는 기술적으로 필요한 투명한 빈 영역이며, 권장 표시 높이가 아닙니다. 화면에서는 입력 노트의 낙하를 확인하기 전에 게임의 LIFT를 입력하거나 수동 높이를 선택하도록 안내합니다.
 
-New settings and pre-release settings without `heightMode` use automatic mode. A previous `overlayHeight` (or legacy `liftHeight`) is retained as `manualOverlayHeight`; if no previous custom value exists, its fallback is 240 px. That fallback is not an instruction for the ordinary automatic setup. Switching modes preserves the saved manual choice. `overlayHeight` is derived, so code changing manual height must update `manualOverlayHeight` rather than overwriting the effective value.
+새 설정과 `heightMode`가 없는 출시 전 설정은 자동 모드를 사용합니다. 이전의 `overlayHeight` 또는 더 오래된 `liftHeight` 값은 `manualOverlayHeight`에 보관합니다. 이전 수동 값이 없으면 240 px를 사용합니다. 이 대체값은 일반적인 자동 설정에서 240을 입력하라는 뜻이 아닙니다. 모드를 바꿔도 수동 값은 유지됩니다. `overlayHeight`는 계산 결과이므로, 코드에서 수동 높이를 바꿀 때는 이 결과를 덮어쓰지 말고 `manualOverlayHeight`를 수정해야 합니다.
 
-Changing only the display-height mode or manual height does not change speed. Changing LIFT itself changes both its automatic display height and the speed formula, because it changes the game's visible lane length.
+표시 높이 모드나 수동 높이만 바꾸면 속도는 유지됩니다. LIFT 자체를 바꾸면 게임에서 보이는 레인 길이가 달라지므로 자동 높이와 속도 계산값이 모두 바뀝니다.
 
-The settings page and overlay recalculate height, but **an existing OBS Browser Source is not resized automatically**. Copy its new height into OBS's Browser Source properties, or explicitly apply the optional OBS script's placement action. Vertical transform scaling is not a substitute.
+설정 페이지와 오버레이는 높이를 다시 계산하지만, **이미 추가된 OBS 브라우저 소스의 크기는 자동으로 바뀌지 않습니다.** 새 높이를 브라우저 소스 속성에 복사하거나, 선택 사항인 OBS 스크립트의 배치 적용 기능을 직접 실행하세요. 세로 변환 배율을 바꾸는 것으로 대신하면 안 됩니다.
 
-## OBS position and the 1080p preset
+## OBS 위치와 1080p 크기 맞추기
 
-`getObsPlacement()` returns the source's top-left corner in a 1920 × 1080 canvas. Use top-left alignment, 100% scale, no bounds scaling and zero cropping:
+`getObsPlacement()`는 1920 × 1080 캔버스에서 소스의 왼쪽 위 좌표를 반환합니다. 왼쪽 상단 정렬, 배율 100%, 경계 상자에 맞춘 크기 조절 없음, 자르기 0을 사용합니다.
 
 ```text
-reference lane width = 432 px
+기준 레인 너비 = 432 px
 1P X = 75 + obsOffsetX
 2P X = (1920 - 75 - 432) + obsOffsetX = 1413 + obsOffsetX
 Y = 723 - round(723 × LIFT / 1000) + obsOffsetY
 ```
 
-Example: LIFT 401 with no adjustments gives Y 433 and automatic height 290. X is 75 for 1P or 1413 for 2P. The 1P reference was checked against a fullscreen 1080p capture. The 2P reference is a mirrored estimate, not a verified measurement of a 2P capture. Different game geometry or a scaled/cropped capture requires calibration.
+예를 들어 LIFT 401에 위치 보정이 없으면 Y는 433, 자동 높이는 290입니다. X는 1P에서 75, 2P에서 1413입니다. 1P 기준은 1080p 전체화면 캡처와 대조했습니다. 2P는 이를 좌우 대칭으로 계산한 추정값이며, 실제 2P 캡처에서 측정한 값이 아닙니다. 게임 화면 구조가 다르거나 캡처를 확대·축소·잘랐다면 위치를 보정해야 합니다.
 
-`obsOffsetX` and `obsOffsetY` are saved integer pixel adjustments, defaulting to 0. Positive X moves right and positive Y moves down. Their accepted ranges are −3840…3840 and −2160…2160 respectively. Position is anchored to the game lane reference, independent of custom output width, manual display height, green number and SUDDEN+. LIFT changes Y; 1P/2P changes X. A custom width does not recenter the source.
+`obsOffsetX`와 `obsOffsetY`는 정수 픽셀 단위의 위치 보정값이며 기본값은 0입니다. X에 양수를 넣으면 오른쪽으로, Y에 양수를 넣으면 아래로 이동합니다. 허용 범위는 각각 −3840…3840, −2160…2160입니다. 위치는 게임 레인 기준에 고정되어 있어 사용자 지정 너비, 수동 높이, 녹숫, SUDDEN+와 독립적입니다. LIFT는 Y를, 1P/2P는 X를 바꿉니다. 너비를 바꿔도 소스의 중심을 다시 맞추지는 않습니다.
 
-The **Match 1080p lane size** action sets `width = 432`, `scratchWidth = 5/3`, `blackKeyRatio = 7/9`, and both position adjustments to 0. It preserves game values, the selected side, input mapping, height mode and saved manual height. The width ratios yield a 90 px scratch lane, 54 px white-key lanes and 42 px black-key lanes. It is a deliberate setup action, not a migration applied to existing users.
+**1080p 레인 크기 맞추기**는 `width = 432`, `scratchWidth = 5/3`, `blackKeyRatio = 7/9`로 설정하고 두 위치 보정값을 0으로 만듭니다. 게임 수치, 선택한 플레이 위치, 입력 매핑, 높이 모드, 저장된 수동 높이는 유지합니다. 이 폭 비율을 적용하면 스크래치 레인은 90 px, 흰 건반 레인은 54 px, 검은 건반 레인은 42 px가 됩니다. 사용자가 직접 실행하는 설정이며 기존 사용자에게 자동 적용되는 변경은 아닙니다.
 
-The settings page supplies separate X/Y copy buttons. Changing settings only recalculates the values: **it does not move an existing OBS scene item**. Paste X/Y into Edit Transform, or explicitly invoke the optional OBS script's placement action. After changing LIFT, update both Browser Source height (when automatic) and Y position. A manual-height change updates height only.
+설정 페이지에는 X와 Y를 각각 복사하는 버튼이 있습니다. 설정을 바꾸면 계산값만 갱신되며, **기존 OBS 장면의 소스를 이동시키지는 않습니다.** 변환 편집에 X/Y를 붙여 넣거나 OBS 스크립트에서 배치 적용을 직접 실행하세요. LIFT를 바꿨다면 자동 높이 모드에서는 브라우저 소스 높이와 Y 위치를 모두 갱신해야 합니다. 수동 높이만 바꿨다면 높이만 갱신합니다.
 
-## Meaning of each input note
+## 입력 노트가 나타내는 것
 
-| Input | Display |
+| 입력 | 표시 |
 | --- | --- |
-| Short key press | Falling input note whose length reflects the press duration. |
-| Held key | Ribbon grows while held; after release, its tail falls away from the judgment line. |
-| Clockwise turntable movement | ↻ and light coral (`#ffb4aa`); length reflects detected movement duration. |
-| Counterclockwise turntable movement | ↺ and deep coral (`#e45470`); a direction change begins a separate segment. |
-| Device loss | Active input states clear to avoid stuck held notes. |
+| 짧게 누른 건반 | 누른 시간에 따라 길이가 정해지는 입력 노트가 떨어집니다. |
+| 계속 누르고 있는 건반 | 누르는 동안 몸통이 길어집니다. 손을 떼면 끝부분도 판정선에서 떨어집니다. |
+| 시계방향 회전 | ↻와 연한 산호색(`#ffb4aa`)으로 표시하며, 길이는 감지된 회전 시간에 따릅니다. |
+| 반시계방향 회전 | ↺와 진한 산호색(`#e45470`)으로 표시합니다. 방향을 바꾸면 새 구간을 시작합니다. |
+| 장치 연결 끊김 | 계속 누른 상태로 남지 않도록 활성 입력 상태를 지웁니다. |
 
-A held key can look like a long note, but the tool cannot know whether the chart contains one. It cannot identify individual chart notes inside continuous scratch motion, distinguish long scratches using chart information, or report game judgments. Stopping a scratch is inferred after a short timeout. Input notes describe controller input history, not chart data.
+길게 누르면 롱노트처럼 보일 수 있지만, 앱은 채보에 실제 롱노트가 있는지 알 수 없습니다. 연속 회전 안에 있는 개별 스크래치 노트를 구분하거나 채보 정보로 롱스크래치를 식별하지 못하며, 게임 판정도 표시하지 않습니다. 스크래치 정지는 짧은 대기 시간이 지난 뒤 추정합니다. 입력 노트는 채보가 아닌 컨트롤러의 입력 기록을 나타냅니다.
 
-Native input targets a polling interval near 4 ms. Drawing follows browser animation frames; the optional OBS script sets the Browser Source to 60 FPS. OBS output rate, scheduling, drivers and capture latency can limit the result. Synthetic demo smoothness does not establish actual capture synchronization.
+네이티브 입력은 약 4 ms 간격으로 읽는 것을 목표로 합니다. 화면은 브라우저의 애니메이션 프레임에 맞춰 그리며, 선택 사항인 OBS 스크립트는 브라우저 소스를 60 FPS로 설정합니다. 실제 결과는 OBS 출력 프레임 수, 처리 실행 시점, 드라이버, 캡처 지연의 영향을 받습니다. 합성 데모가 부드럽게 보인다는 사실만으로 실제 캡처와의 동기화가 검증되지는 않습니다.
 
-## Controller support and guided setup
+## 컨트롤러 지원 범위와 초기 설정
 
-Windows native input uses WinMM joystick enumeration and polling. Button indices are zero-based. Scratch tracking expects a **wrapping absolute-position axis**; supported axis names and indices can differ by device. Keyboard-only modes and other scratch encodings may need a different adapter.
+Windows 네이티브 입력은 WinMM으로 조이스틱을 찾고 입력을 읽습니다. 버튼 번호는 0부터 시작합니다. 스크래치는 **끝값에 도달하면 반대쪽 끝값으로 돌아가는 절대 위치 축**을 전제로 합니다. 지원하는 축의 이름과 번호는 장치마다 다를 수 있습니다. 키보드 전용 모드나 다른 방식의 스크래치 신호를 읽으려면 별도의 입력 어댑터가 필요할 수 있습니다.
 
-The guided setup collects one unique button for each key and requires releases between keys. It then asks for clockwise movement followed by counterclockwise movement, each viewed from above and checked separately. Both steps must identify the same wrapping axis with opposite movement signs. The clockwise sample determines the saved `scratchInvert` boolean: after applying it, direction `+1` means clockwise and `-1` means counterclockwise. Device axis signs do not define physical direction by themselves. The setup relies on the user following the two physical-direction prompts; it cannot detect a consistently reversed interpretation of both prompts. Applying a reviewed result updates the ordinary configurable mapping. Canceling does not save a partial mapping; device changes or disconnects invalidate a draft. Retrying rotation setup keeps the seven key assignments and repeats both directions. Manual controls, including direction reversal, remain available for troubleshooting and unsupported detection cases.
+초기 설정은 건반마다 중복되지 않는 버튼 하나를 받고, 다음 건반으로 넘어가기 전에 손을 떼도록 요구합니다. 이후 턴테이블을 위에서 본 기준으로 시계방향, 반시계방향 순서대로 돌리도록 안내하고 두 방향을 따로 확인합니다. 두 단계에서 같은 순환 축이 감지되고 이동 부호가 반대여야 합니다. 시계방향 입력에 따라 `scratchInvert`를 저장하며, 적용 후에는 `+1`이 시계방향, `-1`이 반시계방향을 뜻합니다. 장치 축의 부호만으로 물리적 회전 방향이 정해지는 것은 아닙니다. 사용자가 두 방향의 안내를 따라야 하며, 두 안내를 모두 반대로 해석한 경우에는 앱이 이를 알아낼 수 없습니다.
 
-One PHOENIXWAN was checked for seven buttons and bidirectional X-axis scratch during development. That basic input check does not validate the complete current setup wizard or establish compatibility with every firmware, controller mode or device. Simultaneous input with INFINITAS and exact game-capture synchronization remain to be validated for each setup. See [Validation](VALIDATION.md) for the recorded scope. The adapter reads input; it does not install drivers, change controller firmware or send game input.
+결과를 확인한 뒤 적용하면 일반 입력 매핑 설정이 바뀝니다. 취소하면 진행 중인 매핑을 저장하지 않습니다. 장치가 바뀌거나 연결이 끊기면 진행 중인 설정은 무효가 됩니다. 회전 방향 설정을 다시 시작해도 건반 7개의 할당은 유지하고 두 방향만 다시 받습니다. 자동 감지가 맞지 않거나 문제를 해결해야 할 때는 방향 반전을 포함한 수동 설정을 사용할 수 있습니다.
 
-Selected devices are not restored automatically during manual startup. OBS's helper can select a configured device number, default 0; -1 skips automatic selection. Device numbers may change after reconnection.
+개발 중 PHOENIXWAN 한 대에서 건반 7개와 양방향 X축 스크래치 입력을 확인했습니다. 이 기본 입력 확인만으로 현재 초기 설정의 전체 흐름이나 모든 펌웨어·모드·장치의 호환성이 검증된 것은 아닙니다. INFINITAS와의 동시 입력 및 게임 캡처와의 정확한 동기화는 각 환경에서 확인해야 합니다. 기록된 범위는 [검증 현황](VALIDATION.md)을 참고하세요. 입력 어댑터는 입력을 읽기만 하며 드라이버 설치, 컨트롤러 펌웨어 변경, 게임으로 입력 전송을 하지 않습니다.
 
-macOS/Linux can run the source demo and focused-page keyboard input, but Windows native input and OBS automatic startup are not supported there. The packaged desktop app is Windows x64 only.
+앱을 수동 실행할 때는 선택했던 장치를 자동 복원하지 않습니다. OBS 실행 도우미는 설정된 장치 번호를 선택할 수 있으며 기본값은 0입니다. -1이면 자동 선택을 건너뜁니다. 장치를 다시 연결하면 번호가 바뀔 수 있습니다.
 
-## Optional OBS startup settings
+macOS/Linux에서는 소스로 데모와 설정 페이지에 초점이 있는 키보드 입력을 사용할 수 있습니다. Windows 네이티브 입력과 OBS 자동 실행은 지원하지 않습니다. 실행 파일로 배포하는 데스크톱 앱은 Windows x64 전용입니다.
 
-The user guides cover a minimal automatic-start setup with defaults. These details are for custom configurations and troubleshooting.
+<a id="optional-obs-startup-settings"></a>
 
-1. Stop the standalone app, then open **OBS → Tools → Scripts → +** and choose `obs-lift-trace.lua` from the app folder.
-2. Keep the Lua file, `start-obs-bridge.ps1` and `LiftTrace.exe` together. The helper prefers the adjacent executable. Source users without that executable can leave the Python path blank for detection or select their interpreter; OBS's Python scripting configuration is not used.
-3. The local port defaults to 8765. If changed, it must also match the application and Browser Source URL. Do not change it merely to copy the address; the ordinary UI provides copy buttons.
-4. Controller ID defaults to 0; -1 disables automatic selection. Choose the number shown by the settings page for another controller. Device numbers can change after reconnecting hardware.
-5. **Start / connect input server** starts or reuses the local server for this OBS session. **Open input settings** opens its browser controls.
-6. **Use the size set in Lift Trace (recommended)** is enabled by default. **Add overlay / apply placement** reads the saved app width and effective automatic/manual height, then creates or updates the named Browser Source at 60 FPS. If that checkbox is off, the script's separate width and height fields are used instead.
-7. **Use the position calculated in Lift Trace (recommended)** uses the saved side, LIFT and position adjustments to calculate X/Y when **Add overlay / apply placement** is clicked. If disabled, the script's manual X/Y fields are used. It defaults to enabled for a new script configuration. Pre-release script settings with existing manual coordinates keep manual positioning until this option is deliberately enabled.
+## 선택 사항: OBS 자동 실행 설정
 
-The placement action changes the named source in the current scene, places it above the other sources, resets transform scale to 100%, top-left alignment and no bounds scaling, clears cropping, and locks it. It applies X/Y from the selected app/manual positioning mode. It does not start streaming or recording. Later app edits do not automatically invoke this action, resize the Browser Source or move the scene item; update the Browser Source/transform fields or apply placement explicitly.
+사용 설명서는 기본값을 이용한 최소한의 자동 실행 방법을 안내합니다. 아래는 설정을 바꾸거나 문제를 해결할 때 참고할 세부 사항입니다.
 
-Scripts belong to scene collections. Register it in each collection where it is needed, and replace its registered path if the app folder moves. Removing the script or disabling automatic startup affects future launches; the ownership rules below still apply to an already started server.
+1. 독립 실행 중인 앱을 종료한 뒤 **OBS → 도구 → 스크립트 → +**에서 앱 폴더의 `obs-lift-trace.lua`를 선택합니다.
+2. Lua 파일, `start-obs-bridge.ps1`, `LiftTrace.exe`를 같은 폴더에 둡니다. 실행 도우미는 옆에 있는 실행 파일을 우선 사용합니다. 실행 파일 없이 소스를 쓰는 경우 Python 경로를 비워 자동으로 찾게 하거나 사용할 인터프리터를 지정할 수 있습니다. OBS의 Python 스크립트 설정은 사용하지 않습니다.
+3. 로컬 포트의 기본값은 8765입니다. 바꾼다면 앱과 브라우저 소스 URL의 포트도 같아야 합니다. 주소를 복사하려고 이 값을 바꿀 필요는 없습니다. 일반 설정 화면에 복사 버튼이 있습니다.
+4. 컨트롤러 번호의 기본값은 0이며, -1이면 자동 선택을 끕니다. 다른 컨트롤러를 사용하려면 설정 페이지에 표시된 번호를 입력하세요. 장치를 다시 연결하면 번호가 바뀔 수 있습니다.
+5. **입력 서버 시작 / 연결**은 이번 OBS 실행에 사용할 로컬 서버를 시작하거나 재사용합니다. **입력 설정 열기**는 브라우저의 설정 화면을 엽니다.
+6. **앱에서 정한 크기 사용 (추천)**은 기본으로 켜져 있습니다. **오버레이 소스 추가 / 배치 적용**을 누르면 저장된 너비와 자동·수동 모드에서 정해진 실제 높이를 읽고, 지정한 이름의 브라우저 소스를 60 FPS로 만들거나 갱신합니다. 이 항목을 끄면 스크립트의 별도 너비·높이 값을 사용합니다.
+7. **앱에서 계산한 위치 사용 (추천)**을 켜면 **오버레이 소스 추가 / 배치 적용**을 누를 때 저장된 1P/2P, LIFT, 위치 보정값으로 X/Y를 계산합니다. 끄면 스크립트의 수동 X/Y 값을 사용합니다. 새 스크립트 설정에서는 기본으로 켜집니다. 출시 전 설정에 수동 좌표가 이미 저장되어 있다면, 이 항목을 직접 켜기 전까지 수동 위치를 유지합니다.
 
-For failures, check `data/obs-bridge-*.status`, `data/obs-bridge-*.stdout.log`, `data/obs-bridge-*.stderr.log` and, for device selection, `data/obs-controller-*.log`. Desktop diagnostics use `data/lift-trace.log`, with a possible `%TEMP%/LiftTrace/` fallback when the app folder is unwritable. Remove private paths and device information before sharing excerpts.
+배치 적용은 현재 장면에서 지정한 이름의 소스를 바꿉니다. 다른 소스 위로 올리고, 변환 배율을 100%, 정렬을 왼쪽 상단, 경계 상자에 맞춘 크기 조절을 없음으로 설정하며, 자르기를 지우고 소스를 잠급니다. 선택한 앱 계산값 또는 수동 위치 모드의 X/Y를 적용합니다. 방송이나 녹화를 시작하지는 않습니다. 이후 앱에서 설정을 바꿔도 이 작업이 자동 실행되거나 브라우저 소스의 크기·위치가 바뀌지 않습니다. 소스 속성과 변환 값을 직접 갱신하거나 배치 적용을 다시 실행하세요.
 
-## Server ownership
+스크립트는 장면 모음에 속합니다. 필요한 장면 모음마다 등록하고, 앱 폴더를 옮겼다면 등록한 경로도 바꾸세요. 스크립트를 제거하거나 자동 실행을 끄는 것은 다음 실행부터 영향을 줍니다. 이미 실행된 서버에는 아래 종료 규칙이 계속 적용됩니다.
 
-| Startup situation | Who stops the server? |
+실패한 경우 `data/obs-bridge-*.status`, `data/obs-bridge-*.stdout.log`, `data/obs-bridge-*.stderr.log`를 확인하세요. 컨트롤러 선택 문제는 `data/obs-controller-*.log`에 기록됩니다. 데스크톱 실행 창의 진단 로그는 `data/lift-trace.log`이며, 앱 폴더에 저장할 수 없으면 `%TEMP%/LiftTrace/`를 사용할 수 있습니다. 로그를 공유하기 전에 개인 경로와 장치 정보를 지우세요.
+
+## 서버를 종료하는 주체
+
+| 실행 상황 | 서버 종료 방식 |
 | --- | --- |
-| LiftTrace.exe creates a new server | Closing its manager window or choosing Quit stops that server. |
-| LiftTrace.exe connects to an existing Lift Trace server | The manager leaves the existing server running. |
-| OBS helper creates a new server | That OBS process exiting stops the server. |
-| OBS helper finds an existing healthy Lift Trace server | It reuses it without taking ownership; exiting OBS leaves it running. |
+| LiftTrace.exe가 새 서버를 시작한 경우 | 실행 창을 닫거나 종료를 누르면 그 서버를 종료합니다. |
+| LiftTrace.exe가 실행 중인 Lift Trace 서버에 연결한 경우 | 실행 창을 닫아도 기존 서버는 계속 실행됩니다. |
+| OBS 실행 도우미가 새 서버를 시작한 경우 | 해당 OBS 프로세스가 종료되면 서버도 종료합니다. |
+| OBS 실행 도우미가 정상 실행 중인 서버를 찾은 경우 | 기존 서버의 종료를 맡지 않고 재사용합니다. OBS가 종료되어도 서버는 계속 실행됩니다. |
 
-Changing automatic-start settings or removing the OBS script affects later launches. A currently OBS-owned server remains tied to its owning OBS process. No path should terminate an unrelated process merely because it uses the same port.
+자동 실행 설정 변경이나 OBS 스크립트 제거는 다음 실행부터 영향을 줍니다. OBS가 이미 시작한 서버는 그 OBS 프로세스의 종료를 계속 따릅니다. 같은 포트를 사용한다는 이유만으로 관계없는 프로세스를 종료해서는 안 됩니다.
 
-## Settings and privacy
+## 설정과 개인정보
 
-The default `data/` folder is beside the extracted app or source. `settings.json` stores overlay configuration; `desktop.json` stores the desktop window's language. Runtime diagnostics may contain local paths or device details.
+기본 `data/` 폴더는 압축 해제한 앱 또는 소스 폴더 안에 있습니다. `settings.json`은 오버레이 설정을, `desktop.json`은 데스크톱 실행 창의 언어를 저장합니다. 실행 중 기록한 진단 정보에는 로컬 경로나 장치 정보가 들어갈 수 있습니다.
 
-The app binds to `127.0.0.1` only and does not require an account or contact an external service for normal operation. It is intended for OBS and a browser on the same PC. Do not expose it as a public network service. See [Security](../SECURITY.md) before sharing diagnostics.
-
+앱은 `127.0.0.1`에만 연결을 열며, 일반적인 사용에는 계정이나 외부 서비스 연결이 필요하지 않습니다. 같은 PC의 OBS와 브라우저에서 사용하도록 만들어졌습니다. 외부에서 접속할 수 있는 공개 네트워크 서비스로 노출하지 마세요. 진단 정보를 공유하기 전 [보안 안내](../SECURITY.md)를 확인하세요.

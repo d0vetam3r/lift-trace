@@ -1,51 +1,63 @@
-# Contributing
+# 기여 안내
 
-English, Korean and Japanese reports and contributions are welcome. Use the [user guides](docs/USER_GUIDE.en.md) to install the Windows app; use [Development](docs/DEVELOPMENT.md) to work on its source.
+[한국어](CONTRIBUTING.md) · [日本語](CONTRIBUTING.ja.md) · [English](CONTRIBUTING.en.md)
 
-## Report a problem
+한국어·영어·일본어로 오류를 제보하거나 개선안을 제안할 수 있습니다. 프로그램을 설치하려면 [사용 안내](docs/USER_GUIDE.ko.md)를, 소스 코드를 수정하려면 [개발 가이드](docs/DEVELOPMENT.md)를 먼저 읽어 주세요.
 
-Open an issue with the repository's bug-report template. Include:
+## 문제 제보하기
 
-- Lift Trace version and whether you downloaded the **Windows app** or ran the **source**.
-- Windows/OS and OBS versions. **Python version is only needed for source execution.**
-- What you clicked, what you expected and what happened; copy the exact error text where possible.
-- Controller model and connection mode, if the problem involves input.
-- Manual application startup or OBS automatic startup, and whether another server was already running.
-- For alignment problems: canvas resolution, source dimensions/scale, green number, LIFT, SUDDEN, speed correction and delay.
-- Relevant log lines with personal paths and device identifiers removed.
+저장소의 버그 제보 양식으로 Issue를 열고, 다음 중 확인할 수 있는 내용을 적어 주세요.
 
-If you do not know a technical field, say so; a clear description of the steps is more useful than guessing. Do not attach the entire `data/` folder, OBS profiles, game assets or private captures. For sensitive reports, follow [Security](SECURITY.md).
+- Lift Trace 버전과 실행 방법: **Windows 앱**을 받았는지, **소스 코드**로 실행했는지
+- Windows 또는 사용 중인 운영체제와 OBS 버전. **Python 버전은 소스로 실행할 때만 필요합니다.**
+- 누른 버튼과 진행한 단계, 기대한 결과, 실제로 일어난 일. 오류 문구는 가능하면 그대로 복사해 주세요.
+- 입력 문제라면 컨트롤러 제품명과 연결 모드
+- 앱을 직접 켰는지 OBS와 함께 켰는지, 그 전에 Lift Trace가 이미 실행 중이었는지
+- 위치나 속도 문제라면 OBS 캔버스 해상도, 소스 크기·배율, 녹숫, LIFT, SUDDEN+, 속도 보정, 표시 지연 값
+- 관련 로그. 개인 폴더 경로나 장치 식별 정보는 지워 주세요.
 
-## Propose a change
+모르는 항목은 모른다고 적어도 괜찮습니다. 추측한 수치보다 실제로 한 일을 순서대로 설명하는 편이 도움이 됩니다. `data/` 폴더 전체, OBS 프로필, 게임 파일이나 비공개 화면 녹화는 첨부하지 마세요. 공개하기 곤란한 보안 문제는 [보안 안내](SECURITY.md)를 따라 주세요.
 
-Keep a change focused and describe the resulting user behavior. Read [Development](docs/DEVELOPMENT.md) for source setup and tests. Keep a single source tree for users and contributors; the Windows package adds the runtime, not a different product.
+## 변경 제안하기
 
-Preserve the standard-library application runtime and the overlay-only distribution boundary unless a deliberate design change is agreed. Build dependencies belong in the pinned build requirements, not user installation instructions. Hardware-specific defaults must remain configurable. Do not add personal paths or assumptions about one user's computer.
+한 번의 변경은 하나의 목적에 집중하고, 사용자가 겪는 동작이 어떻게 달라지는지 설명해 주세요. 개발 환경과 검사 방법은 [개발 가이드](docs/DEVELOPMENT.md)에 있습니다. 사용자용 앱과 개발자용 소스는 같은 코드를 사용합니다. Windows 배포본은 실행에 필요한 런타임을 더한 것이며 별도 제품이 아닙니다.
 
-Add meaningful tests for behavior changes. Describe manual checks and the device/mode tested without implying broader compatibility. Startup/shutdown changes must preserve preexisting servers. Guided setup changes must test press/release order, repeated buttons, ambiguous axes, cancellation and disconnection.
+설계를 바꾸기로 합의하지 않았다면, Python 표준 라이브러리로 실행되는 구조와 오버레이만 배포하는 범위를 유지해 주세요. 빌드에 필요한 패키지는 버전이 고정된 빌드 의존성 목록에 추가하고, 사용자에게 설치를 요구하지 않습니다. 특정 컨트롤러에 맞춘 기본값은 바꿀 수 있어야 합니다. 개인 경로나 특정 PC에서만 성립하는 가정은 넣지 마세요.
 
-Keep English, Korean and Japanese user documentation and interface text consistent. Use **input notes / 입력 노트 / 入力ノーツ** for the displayed key presses and scratch movements; keep the product name **Lift Trace** unchanged. These notes show controller input, not chart data. The README and user guide should lead users to the **Windows app**, while developer commands belong in the development guide. Identify downloads by the stable filename prefix and `.zip` ending, without a fixed version number. Explain user tasks with the actual button labels, one action at a time, and the result to check. Do not assume users understand addresses, ports, servers or software development. Entering game values must precede checking input notes: default LIFT 0 has no automatic display area. Describe scratch directions as clockwise ↻ and counterclockwise ↺, viewed from above. Developer documentation is currently English.
+동작을 바꿨다면 해당 동작을 확인할 수 있는 테스트를 추가하세요. 수동으로 확인한 항목과 실제로 사용한 장치·모드를 적고, 확인하지 않은 호환성까지 보장하지 마세요. 실행·종료 로직을 수정할 때는 먼저 실행 중이던 서버를 종료하지 않는지 확인합니다. 컨트롤러 설정 절차를 수정할 때는 누르기·놓기 순서, 같은 버튼 중복 입력, 축을 구분할 수 없는 입력, 취소와 연결 해제를 확인합니다.
 
-## Branches and review
+## 문서와 번역
 
-Use `main` for accepted work and a short-lived branch for each focused change. There is no separate `develop` branch.
+한국어·일본어·영어 문서와 화면의 내용이 서로 맞도록 유지해 주세요. 번역 과정에서 기능이나 지원 범위가 달라지면 안 됩니다.
 
-1. Start from the current `main`, using a branch name such as `fix/scratch-direction` or `docs/setup-guide`. Use a fork if you do not have repository write access.
-2. Make the change, run the relevant checks, and open a pull request targeting `main`. Explain what changed, what you tested and any remaining gaps.
-3. The maintainer reviews the change and its test results before merging. After merge, the working branch can be deleted.
+- 코드, 명령어, API 이름, 파일 경로는 번역하지 않습니다. 버튼과 입력칸 이름은 해당 언어의 실제 화면과 맞춥니다.
+- 건반과 스크래치 표시에는 **입력 노트 / input notes / 入力ノーツ**를 사용하고, 제품 이름 **Lift Trace**는 그대로 둡니다. 입력 노트는 컨트롤러 조작을 나타내며 게임 채보를 읽은 결과가 아닙니다.
+- README와 사용 안내에서는 **Windows 앱**으로 시작하도록 안내하고, 개발용 명령어는 개발 가이드에 둡니다. 다운로드 파일은 고정된 버전 번호 대신 파일 이름의 공통 앞부분과 `.zip`으로 구분합니다.
+- 한 번에 할 일 하나와 그 뒤에 확인할 결과를 설명합니다. 주소·포트·서버나 개발 지식을 안다고 가정하지 마세요. 입력 노트를 확인하기 전에 게임 수치를 입력하도록 안내합니다. 기본값인 LIFT 0에서는 자동으로 계산한 표시 공간이 없습니다.
+- 스크래치는 턴테이블을 위에서 내려다본 기준으로 **시계방향 ↻**, **반시계방향 ↺**를 구분합니다.
 
-A pull request does not need its own version bump. The maintainer chooses a release version and a tested commit after changes are ready. `main` can therefore contain work newer than the latest published release. Follow [Releasing](docs/RELEASING.md) for tags, build artifacts and publication.
+언어별 내용과 실제 화면이 맞는지 확인하고, 남은 번역이나 검토가 있다면 명시해 주세요. AI로 문장을 다듬었다는 이유만으로 해당 언어 사용자나 처음 쓰는 사람이 검토했다고 적어서는 안 됩니다.
 
-## Pull requests and licensing
+## 브랜치와 검토
 
-Explain the problem, the final behavior and relevant validation. Add user-visible changes to an **Unreleased** section in [CHANGELOG.md](CHANGELOG.md), creating it if needed; leave published version entries intact. New public files must be included in release allowlists, and a packaging change should be checked against an extracted archive.
+검토를 마친 변경은 `main`에 합칩니다. 개별 작업은 짧게 유지하는 별도 브랜치에서 진행하며, `develop` 브랜치는 따로 두지 않습니다.
 
-Contributions are provided under the project's [MIT License](LICENSE). Only contribute code and assets you have the right to share. Bundled third-party runtimes retain their own licenses; preserve notices and avoid adding copyrighted game captures to public documentation.
+1. 최신 `main`에서 `fix/scratch-direction`, `docs/setup-guide`처럼 작업을 알아볼 수 있는 이름으로 브랜치를 만듭니다. 저장소에 쓰기 권한이 없다면 포크를 사용합니다.
+2. 변경과 관련 검사를 마치고, `main`에 합치기 위한 Pull Request(PR)를 엽니다. 바꾼 내용, 검사 결과, 아직 확인하지 못한 부분을 적습니다.
+3. 관리자가 변경과 검사 결과를 검토한 뒤 합칩니다. 합친 뒤 작업 브랜치는 삭제해도 됩니다.
 
-## AI-assisted contributions
+PR마다 버전을 올릴 필요는 없습니다. 관리자가 배포할 변경이 준비됐을 때 버전과 검증한 커밋을 정합니다. 따라서 `main`에는 최신 배포본보다 나중에 추가한 내용이 있을 수 있습니다. 태그, 배포 파일, 공개 절차는 [릴리스 안내](docs/RELEASING.md)를 참고하세요.
 
-AI assistance is welcome. The person submitting a contribution is responsible for reviewing it, understanding the behavior it changes, and explaining the relevant decisions when asked. Check generated code and documentation against the actual application; plausible wording and passing tests alone do not establish correctness.
+## PR 설명과 라이선스
 
-If AI substantially drafted or changed the contribution, mention that in the pull request and briefly state what you verified. A short sentence is enough; no prompt transcript is required. Check the source and license of any reused material, including suggestions from AI tools. Do not claim a human, hardware or independent review that did not happen.
+해결할 문제, 최종 동작, 관련 검사 결과를 적어 주세요. 사용자에게 보이는 변경은 [변경 이력](CHANGELOG.md)의 **미출시** 항목에 추가하고, 항목이 없으면 만듭니다. 이미 공개한 버전의 기록은 그대로 둡니다. 공개 파일을 추가했다면 배포 대상 파일 목록에도 넣어야 합니다. 패키징을 바꿨다면 실제 압축을 푼 결과로 확인하세요.
 
-For documentation changes, read the steps in order and compare button names with the interface. Ask fluent speakers to report unnatural wording and first-time users to report unclear steps. An AI editorial pass is useful preparation, but it is not evidence that either group has reviewed the result. Record completed checks and remaining gaps using [Validation](docs/VALIDATION.md).
+기여한 내용에는 프로젝트의 [MIT 라이선스](LICENSE)가 적용됩니다. 공유할 권리가 있는 코드와 자료만 제출해 주세요. 함께 배포하는 외부 런타임에는 각각의 라이선스가 적용되므로 고지를 보존합니다. 저작권이 있는 게임 화면 캡처를 공개 문서에 추가하지 마세요.
+
+## AI를 활용한 기여
+
+AI 도구를 사용해도 됩니다. 제출하는 사람은 결과를 직접 검토하고, 바뀐 동작을 이해하며, 필요한 경우 그 선택을 설명할 책임이 있습니다. 생성된 코드와 문서를 실제 프로그램과 대조하세요. 그럴듯한 문장이나 테스트 통과만으로 정확성이 보장되지는 않습니다.
+
+AI가 상당 부분을 작성하거나 수정했다면 PR에 그 사실과 직접 확인한 내용을 짧게 적어 주세요. 한 문장이면 충분하며 대화 전문을 제출할 필요는 없습니다. AI가 제안한 것을 포함해 가져다 쓴 자료의 출처와 라이선스를 확인하세요. 하지 않은 사람의 검토, 실물 장치 테스트, 독립 검토를 했다고 적지 마세요.
+
+문서를 고쳤다면 안내를 순서대로 읽고 버튼 이름을 화면과 비교합니다. 해당 언어에 익숙한 사람에게는 어색한 표현을, 처음 쓰는 사람에게는 막히는 단계를 알려 달라고 요청할 수 있습니다. AI의 문장 검토는 이 과정을 준비하는 데 도움이 되지만, 사람이 읽고 확인했다는 증거는 아닙니다. 완료한 확인과 남은 항목은 [검증 현황](docs/VALIDATION.md)에 기록하세요.

@@ -1,91 +1,93 @@
-# Validation status
+# 검증 현황
 
-[Home](../README.md) · [User guide](USER_GUIDE.en.md) · [Development](DEVELOPMENT.md) · [Contributing](../CONTRIBUTING.md)
+[한국어](VALIDATION.md) · [日本語](VALIDATION.ja.md) · [English](VALIDATION.en.md)
 
-This record describes the **0.1.0 prototype**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
+[처음으로](../README.md) · [사용 안내](USER_GUIDE.ko.md) · [개발 가이드](DEVELOPMENT.md) · [기여 안내](../CONTRIBUTING.md)
 
-## Runtime provenance checked
+이 문서는 **0.1.0 시험판**에서 확인한 내용을 기록합니다. 자동 검사와 AI 보조 검토는 사람이 읽거나 실제 장치로 시험해야 하는 항목과 구분합니다. 검사를 통과했다는 것은 그 검사에서 다룬 동작과 환경을 확인했다는 뜻이며, 제품 전체를 보증하지는 않습니다.
 
-On 2026-10-12, a complete Windows build passed `--require-verified-runtime` using the pinned official Python 3.13.16 x64 distribution. The check matched the official archive, Windows manifest and SPDX SBOM, verified 3,159 extracted original files, and compared every packaged DLL/PYD with the corresponding official runtime files. The resulting manifest records `bundledRuntime.runtimeProvenanceVerified: true` with an empty `unverifiedComponents` list.
+## 런타임 출처 확인
 
-This closes the earlier gap in identifying the supplied libffi and XZ binaries. The official SBOM identifies libffi 3.4.4 and XZ/liblzma 5.2.5; the Windows runtime's mpdecimal 4.0.0 entry is also matched. The package includes 16 license/notice files, the official SBOM at `provenance/python-runtime.spdx.json`, and source URLs, hashes and binary mappings in `MANIFEST.json`.
+2026-10-12에 고정된 공식 Python 3.13.16 x64 배포본으로 전체 Windows 빌드를 수행했고, `--require-verified-runtime` 검사를 통과했습니다. 공식 압축 파일, Windows 매니페스트, SPDX SBOM이 서로 일치하는지 확인하고, 추출한 원본 파일 3,159개와 패키지에 포함된 모든 DLL/PYD를 해당 공식 런타임 파일과 비교했습니다. 결과 매니페스트에는 `bundledRuntime.runtimeProvenanceVerified: true`와 빈 `unverifiedComponents` 목록이 기록되어 있습니다.
 
-The result establishes traceability to the official distributor and file integrity. It is not an independently reproduced build, security audit, legal certification or confirmation of application quality. A build using another Python distribution can still report unverified provenance. The source ZIP bundles no runtime. Follow [Releasing](RELEASING.md) to repeat the check on the package being published.
+이 검사로 이전에 확인하지 못했던 libffi와 XZ 바이너리의 출처를 확인했습니다. 공식 SBOM에는 libffi 3.4.4와 XZ/liblzma 5.2.5가 명시되어 있으며, Windows 런타임의 mpdecimal 4.0.0 항목도 일치합니다. 패키지에는 라이선스·고지 파일 16개, `provenance/python-runtime.spdx.json`의 공식 SBOM, `MANIFEST.json`의 출처 URL·해시·바이너리 대응 관계가 포함되어 있습니다.
 
-## Recorded evidence
+이 결과는 공식 배포본에서 가져온 파일인지와 파일이 일치하는지를 확인한 것입니다. 소스에서 독립적으로 빌드를 재현하거나, 보안 감사·법적 인증·앱 품질 확인을 마친 것은 아닙니다. 다른 Python 배포본으로 빌드하면 출처 미확인으로 기록될 수 있습니다. 소스 ZIP에는 런타임이 없습니다. 실제로 공개할 패키지에서는 [릴리스 안내](RELEASING.md)에 따라 다시 확인하세요.
 
-The Python, JavaScript, runtime-provenance and packaged-app results below were refreshed on 2026-10-12. The OBS Lua row retains earlier development evidence with its scope stated. Maintainers must check the exact package they intend to publish.
+## 확인한 결과와 범위
 
-| Check | Recorded result | Scope and limits |
+아래 Python, JavaScript, 런타임 출처, 패키징된 앱의 결과는 2026-10-12에 갱신했습니다. OBS Lua 항목은 이전 개발 과정에서 얻은 근거이며, 범위를 함께 적었습니다. 프로젝트 관리자는 공개하려는 바로 그 패키지를 확인해야 합니다.
+
+| 검사 | 기록된 결과 | 확인 범위와 한계 |
 | --- | --- | --- |
-| Python tests | 57 tests passed from extracted public source | Server behavior, settings, native-input handling with test doubles, desktop ownership, provenance verification and release packaging. Not a physical-controller or novice-installation test. Private launcher tests are excluded from this count and distribution. |
-| JavaScript tests | 72 passed | Input history, rendering logic, settings-file validation, placement, setup state machine and translation coverage. Translation coverage checks do not judge natural wording. |
-| OBS Lua checks | 27 passed in a local development harness | Installed OBS Lua bindings were exercised with scene operations mocked. This did not place an overlay in an actual OBS scene. The harness was a local development check, not part of the distributed test suite. |
-| Runtime provenance | Strict Windows build passed | Official archive/metadata and 3,159 extracted originals checked; every packaged DLL/PYD matched. Distributor traceability, not independent source-to-binary reproduction. |
-| Windows package smoke checks | 3 passed on the verified 2026-10-12 build | Executable startup without external Python on PATH, shutdown with a synthetic OBS parent, and preservation of a preexisting standalone server. No physical controller, live OBS rendering or clean-PC installation was involved. Rerun on each newly built package. |
-| Desktop manager construction | English, Korean and Japanese completed with official Tcl/Tk | Automated check with a hidden window and a fake server. Does not verify visual legibility, real server interaction or the packaged GUI with a human user. |
-| Settings-page inspection | Checked with browser automation and synthetic input | Size/position changes, saved settings and copy controls. Does not establish usability for a first-time user. |
-| Basic controller input | One PHOENIXWAN: seven buttons and bidirectional X-axis movement observed | An earlier basic input check. The complete current direction-setup flow still needs a physical test. Firmware and connection-mode coverage is not established. |
-| Position reference | 1P reference compared with a fullscreen 1920 × 1080 game capture | 2P uses a mirrored estimate. Pixel alignment across other layouts or captures is unverified. |
-| Documentation | AI-assisted editorial pass | No completed independent human language-review report is recorded. |
+| Python 테스트 | 압축을 푼 공개 소스에서 57개 통과 | 서버 동작, 설정, 테스트 대역을 사용한 네이티브 입력 처리, 데스크톱의 서버 소유권, 출처 확인, 배포 패키징. 실제 컨트롤러나 처음 사용하는 사람의 설치 과정은 시험하지 않았습니다. 비공개 런처 테스트는 이 개수와 배포본에서 제외합니다. |
+| JavaScript 테스트 | 72개 통과 | 입력 이력, 렌더링 로직, 설정 파일 검증, 위치 계산, 설정 상태 머신, 번역 항목 누락 검사. 번역 항목 검사는 문장이 자연스러운지 판단하지 않습니다. |
+| OBS Lua 검사 | 로컬 개발용 검사 환경에서 27개 통과 | 설치된 OBS의 Lua 바인딩을 사용하되 장면 조작은 모의 처리했습니다. 실제 OBS 장면에 오버레이를 배치한 검사는 아닙니다. 이 검사 환경은 로컬 개발용이며 배포 테스트에 포함되지 않습니다. |
+| 런타임 출처 | 엄격 검증을 켠 Windows 빌드 통과 | 공식 압축 파일·메타데이터와 추출한 원본 3,159개를 확인했고, 패키지의 모든 DLL/PYD가 일치했습니다. 공식 배포자로 추적할 수 있다는 뜻이며 소스에서 바이너리까지 독립적으로 재현한 것은 아닙니다. |
+| Windows 패키지 기본 실행 검사 | 출처를 확인한 2026-10-12 빌드에서 3개 통과 | PATH에 외부 Python 없이 실행 파일 시작, 가상 OBS 부모 종료에 따른 종료, 기존 독립 서버 유지. 실제 컨트롤러, 실제 OBS 렌더링, 개발 도구 없는 새 PC에서의 설치는 포함하지 않습니다. 새 패키지마다 다시 실행해야 합니다. |
+| 데스크톱 관리 창 생성 | 공식 Tcl/Tk에서 영어·한국어·일본어 모두 완료 | 숨긴 창과 가짜 서버로 자동 확인했습니다. 화면의 가독성, 실제 서버와의 상호작용, 사람이 패키징된 GUI를 사용하는 과정은 확인하지 않았습니다. |
+| 설정 페이지 확인 | 브라우저 자동화와 합성 입력으로 확인 | 크기·위치 변경, 설정 저장, 복사 버튼. 처음 사용하는 사람이 쉽게 사용할 수 있는지는 확인하지 못합니다. |
+| 기본 컨트롤러 입력 | PHOENIXWAN 한 대에서 버튼 7개와 양방향 X축 움직임 관찰 | 이전의 기본 입력 확인입니다. 현재의 전체 방향 설정 절차는 실제 장치 시험이 더 필요합니다. 펌웨어와 연결 모드별 지원 범위는 확인되지 않았습니다. |
+| 위치 기준 | 1P 기준을 1920 × 1080 전체 화면 게임 캡처와 비교 | 2P는 좌우 대칭 추정값을 사용합니다. 다른 배치나 캡처에서 픽셀 단위로 맞는지는 확인하지 않았습니다. |
+| 문서 | AI 보조 편집 검토 | 독립적인 사람이 언어를 검토하고 완료한 보고서는 기록되어 있지 않습니다. |
 
-On 2026-10-12, [GitHub Actions push run 38171755965](https://github.com/d0vetam3r/lift-trace/actions/runs/38171755965) passed all four test jobs: Ubuntu and Windows, each with Python 3.10 and 3.13. The tested commit was [2da03af0287db3a12a2b54e305b344dc311c3ad2](https://github.com/d0vetam3r/lift-trace/commit/2da03af0287db3a12a2b54e305b344dc311c3ad2). The `windows-app` job was skipped because this was a push run; no Windows executable was built by that run. The packaged-app evidence above is from local builds, not a GitHub Windows build. No independent security audit is recorded.
+2026-10-12의 [GitHub Actions push 실행 38171755965](https://github.com/d0vetam3r/lift-trace/actions/runs/38171755965)에서는 Ubuntu와 Windows 각각에서 Python 3.10과 3.13을 사용하는 네 테스트 작업이 모두 통과했습니다. 검사한 커밋은 [2da03af0287db3a12a2b54e305b344dc311c3ad2](https://github.com/d0vetam3r/lift-trace/commit/2da03af0287db3a12a2b54e305b344dc311c3ad2)입니다. push 실행이므로 `windows-app` 작업은 건너뛰었으며, 이 실행에서 Windows 실행 파일을 빌드하지는 않았습니다. 위의 패키지 검사 근거는 GitHub의 Windows 빌드가 아닌 로컬 빌드에서 얻었습니다. 독립적인 보안 감사 기록은 없습니다.
 
-## Still to check
+## 아직 확인할 항목
 
-- Installation from the Windows ZIP on another PC without development tools, using only the user guide.
-- The complete current setup wizard with a physical controller, followed by simultaneous INFINITAS play and OBS display.
-- Short presses, holds, chords, repeated taps, both scratch directions and reversals in the actual capture. The game and overlay may have different capture/input delays.
-- Actual 2P placement, and startup/shutdown through real OBS rather than a synthetic parent process.
-- Readability with Korean, Japanese and English readers, including a fluent Japanese reader who has not worked on the project.
+- 개발 도구가 없는 다른 PC에서 사용 안내만 따라 Windows ZIP을 설치하는 과정.
+- 실제 컨트롤러로 현재 설정 절차를 처음부터 끝까지 진행한 뒤, INFINITAS 플레이와 OBS 표시를 동시에 사용하는 과정.
+- 실제 캡처에서 짧게 누르기, 길게 누르기, 동시 입력, 반복 입력, 양방향 스크래치와 방향 전환. 게임 캡처와 오버레이 입력의 지연은 서로 다를 수 있습니다.
+- 실제 2P 배치와, 가상 부모 프로세스가 아닌 실제 OBS를 통한 시작·종료.
+- 한국어·일본어·영어 독자의 가독성 확인. 프로젝트에 참여하지 않은, 일본어에 능숙한 독자의 확인도 포함합니다.
 
-Windows 10/11 x64 is the intended platform. The local checks above do not establish compatibility with every Windows version, controller, firmware or controller mode.
+대상 환경은 Windows 10/11 x64입니다. 위의 로컬 검사만으로 모든 Windows 버전, 컨트롤러, 펌웨어, 연결 모드의 호환성을 확인한 것은 아닙니다.
 
-## A short human test
+## 사람이 직접 확인하는 짧은 절차
 
-Use a newly extracted Windows ZIP and record its filename. Do not replace a working installation. A temporary OBS scene can be used for the overlay checks; streaming or recording is not required.
+Windows ZIP을 새로 풀고 파일명을 기록하세요. 잘 쓰고 있는 설치본을 덮어쓰지 마세요. 오버레이 검사는 임시 OBS 장면에서 해도 되며, 방송이나 녹화를 시작할 필요는 없습니다.
 
-### Install from the guide
+### 사용 안내를 따라 설치하기
 
-1. Ask someone who has not set up the project to follow the guide in their preferred language. Do not explain the steps in advance.
-2. Have them download, extract and open the app, then enter their own game values. Note the first place where they pause, ask for help or cannot find a control.
-3. Let them finish the guide and add the overlay to OBS. Record whether help was needed and the exact step. If Windows blocks the app, record the message; do not disable its protection to finish the test.
+1. 이 프로젝트를 설정해 본 적 없는 사람에게 편한 언어의 안내를 따라 해 달라고 부탁합니다. 단계를 미리 설명하지 않습니다.
+2. 파일을 받고 압축을 풀어 앱을 연 뒤, 본인의 게임 수치를 넣게 합니다. 처음으로 멈칫하거나 도움을 요청하거나 버튼을 찾지 못한 곳을 기록합니다.
+3. 안내를 끝까지 따라 OBS에 오버레이를 추가하게 합니다. 도움이 필요했는지와 정확히 어느 단계였는지 기록합니다. Windows가 앱을 차단하면 문구를 기록하고, 검사를 끝내기 위해 보호 기능을 끄지는 않습니다.
 
-### Check the controller and OBS
+### 컨트롤러와 OBS 확인하기
 
-1. Complete keys 1–7, clockwise and counterclockwise setup. Press each key and turn the table in both directions. Check clockwise ↻ / light coral and counterclockwise ↺ / deep coral, then alternate directions.
-2. Check short presses, a held key, two keys together and repeated taps. Unplug the controller while an input is active; it should not stay lit indefinitely. Reconnect and select the device again if needed.
-3. With INFINITAS focused, confirm the overlay still receives input. Check lane alignment and falling motion in OBS. Record 1P or 2P, game values and any adjustments needed; do not label timing as exact from an informal visual check.
-4. Close the settings tab and confirm input continues. Close the standalone Lift Trace window that started the display and confirm it stops.
-5. For optional OBS startup, close the standalone app first. Start the display from OBS, then close OBS and check that the display stops. Repeat with the standalone app already running: closing OBS should leave that app's display running.
+1. 건반 1–7번, 시계방향, 반시계방향 설정을 완료합니다. 각 건반을 누르고 턴테이블을 양쪽으로 돌립니다. 시계방향 ↻ / 연한 산호색, 반시계방향 ↺ / 진한 산호색을 확인한 뒤 방향을 번갈아 바꿉니다.
+2. 짧게 누르기, 길게 누르기, 두 건반 동시 입력, 반복 입력을 확인합니다. 입력 중 컨트롤러를 분리했을 때 표시가 계속 켜져 있으면 안 됩니다. 다시 연결하고 필요하면 장치를 다시 선택합니다.
+3. INFINITAS에 포커스가 있는 상태에서도 오버레이가 입력을 받는지 확인합니다. OBS에서 레인 정렬과 낙하 움직임을 봅니다. 1P/2P, 게임 수치, 필요한 보정값을 기록합니다. 눈으로 간단히 본 것만으로 타이밍이 정확하다고 기록하지 않습니다.
+4. 설정 탭을 닫아도 입력이 계속되는지 확인합니다. 그 표시를 시작한 독립 실행 Lift Trace 창을 닫으면 표시가 멈추는지 확인합니다.
+5. 선택 사항인 OBS 자동 실행을 확인할 때는 먼저 독립 실행 앱을 닫습니다. OBS에서 표시를 시작한 뒤 OBS를 닫고 표시도 멈추는지 확인합니다. 독립 실행 앱이 이미 켜져 있는 상태에서도 반복합니다. 이때는 OBS를 닫아도 기존 앱의 표시가 유지되어야 합니다.
 
-### Read the documentation
+### 문서 읽어 보기
 
-1. Read the README and complete user guide in the language being reviewed. Compare each control name with the app and OBS.
-2. Mark wording that feels translated, an undefined term, or a step that needs outside knowledge. Quote the sentence and suggest a replacement if possible.
-3. Confirm the distinction between controller inputs and chart notes is clear, along with automatic height, manual height and the two windows' shutdown behavior.
+1. 검토할 언어의 README와 사용 안내 전체를 읽습니다. 각 조작 항목의 이름을 앱과 OBS에 표시된 이름과 비교합니다.
+2. 번역투로 느껴지는 문장, 뜻을 설명하지 않은 용어, 외부 지식이 필요한 단계를 표시합니다. 가능하면 문장을 인용하고 대안을 적습니다.
+3. 컨트롤러 입력과 게임 채보 노트의 차이, 자동·수동 높이, 두 창을 닫았을 때의 동작이 분명한지 확인합니다.
 
-## Report template
+## 보고 양식
 
-Copy this into an issue or review note. Leave unknown details blank. A skipped or blocked check is useful information; do not mark it as passed.
+이슈나 검토 메모에 복사해서 사용하세요. 모르는 항목은 비워 두면 됩니다. 건너뛰었거나 진행하지 못한 검사도 유용한 정보이므로, 통과한 것으로 적지 마세요.
 
 ```text
-Date:
-ZIP filename / version:
-Windows and OBS versions (if known):
-Language used:
-Controller and INFINITAS connection mode (if tested):
-1P / 2P; green number / LIFT / SUDDEN+ (if tested):
+날짜:
+ZIP 파일명 / 버전:
+Windows와 OBS 버전(알고 있다면):
+사용한 언어:
+컨트롤러와 INFINITAS 연결 모드(시험했다면):
+1P / 2P, 녹숫 / LIFT / SUDDEN+(시험했다면):
 
-Checks attempted:
-Result for each: passed / failed / blocked / not tested
-First unclear guide step or awkward sentence:
-Help or extra steps needed:
-Expected result:
-Actual result / exact error:
-Suggested wording or other notes:
+진행한 검사:
+항목별 결과: 통과 / 실패 / 진행 불가 / 미시험
+처음 이해하기 어려웠던 단계나 어색한 문장:
+필요했던 도움이나 추가 단계:
+기대했던 결과:
+실제 결과 / 정확한 오류 문구:
+문구 제안이나 기타 메모:
 
-Review performed by: person / automated tool / AI-assisted review
+검토 방식: 사람 / 자동 도구 / AI 보조 검토
 ```
 
-Remove personal paths, usernames and device identifiers from logs before sharing. Summarize accepted reports here with their build and scope; do not turn a report about one setup into a general compatibility claim.
+로그를 공유하기 전에 개인 경로, 사용자 이름, 장치 식별자를 지우세요. 받아들인 보고서는 빌드와 검사 범위를 함께 이곳에 요약합니다. 한 환경의 결과를 전체 호환성 보장으로 확대하지 않습니다.

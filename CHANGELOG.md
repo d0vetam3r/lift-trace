@@ -1,34 +1,43 @@
-# Changelog
+# 변경 이력
 
-Changes to the public overlay distribution are recorded here. Internal development iterations are included in the first public version below.
+[한국어](CHANGELOG.md) · [日本語](CHANGELOG.ja.md) · [English](CHANGELOG.en.md)
+
+공개하는 오버레이의 변경 사항을 기록합니다. 공개 전 개발 과정의 변경은 첫 공개 버전인 0.1.0에 포함했습니다.
+
+## 미출시
+
+- README를 용도 설명, 움직이는 예시, Windows 시작 방법, 주요 기능, 목적별 안내 순서로 정리했습니다.
+- 앱의 표시 코드로 만든 동작 설명용 데모와 개발자가 이를 다시 만드는 방법을 추가했습니다.
+- 프로젝트의 기본 문서를 한국어로 바꿨습니다.
+- 개발·기여·기술 참고·검증·릴리스·보안·변경 이력을 세 언어로 제공하고, 선택한 언어로 문서 사이를 이동할 수 있게 했습니다.
 
 ## 0.1.0 — 2026-10-12
 
-Initial public prototype.
+첫 공개 시험판입니다.
 
-- Ready-to-run Windows x64 app: extract and open LiftTrace.exe without installing Python or using a terminal.
-- Seven-key input notes, held-input ribbons, and scratch notes with clockwise ↻ / counterclockwise ↺ arrows and distinct light/deep coral colors.
-- Windows WinMM input with configurable buttons and scratch axis; guided setup checks keys 1–7, clockwise movement and counterclockwise movement before applying the mapping.
-- Saved scratch-axis direction calibration, with manual reversal available.
-- Green-number, LIFT and SUDDEN+ speed calibration for fullscreen 1080p capture. Automatic height follows LIFT; a separate manual height is preserved. Changing display height alone does not change calculated speed.
-- Clear guidance for LIFT 0, which has no automatic input-display area.
-- Separate address, width, height and X/Y position copy buttons for OBS. Position follows 1P/2P and LIFT with saved left/right and up/down adjustments; 2P uses a mirrored reference.
-- Explicit 1080p lane-size preset and step-by-step placement instructions. Optional OBS placement can read the saved app size and position; existing manual coordinates are preserved during migration. App settings alone do not resize or move an OBS source.
-- Black or transparent output, configurable lane widths, 1P/2P layout and display delay.
-- Local settings storage, import/export, synthetic demo and focused-page keyboard testing.
-- Invalid settings imports are rejected before saving; slow event connections receive a fresh settings/state snapshot instead of silently losing configuration updates.
-- Optional OBS startup and shutdown of the server it started, preserving servers started separately.
-- Public OBS integration starts only the overlay, with no discovery or startup of unrelated local services.
-- English, Korean and Japanese interface and step-by-step user guides; separate development, technical reference and release guides.
-- Public AI-use disclosure, contribution review guidance, and a validation record that separates automated checks from pending physical and human review. User guides explain selection/paste shortcuts, position adjustments and shutdown behavior.
-- MIT-licensed source, Windows packaging, bundled runtime notices, matching source/app archive checksums, automated tests and optional manual Windows builds.
-- Windows release builds use a hash-pinned official Python 3.13.16 x64 distribution with its matching manifest and SBOM. Preparation stays inside the workspace and does not change the system Python.
-- Runtime provenance checks compare extracted originals and packaged DLL/PYD files with the official archive. The Windows package retains matching component notices, the SBOM and manifest evidence. Custom-runtime prototype builds remain possible but report unresolved provenance.
+- Windows x64 앱을 제공합니다. 압축을 풀고 LiftTrace.exe를 열면 됩니다. Python 설치나 터미널 조작은 필요하지 않습니다.
+- 7개 건반의 입력 노트, 누르는 동안 이어지는 노트, 스크래치 방향을 표시합니다. 스크래치는 시계방향 ↻ / 반시계방향 ↺ 화살표와 연한/진한 산호색으로 구분합니다.
+- Windows WinMM으로 컨트롤러 입력을 읽으며 버튼과 스크래치 축을 지정할 수 있습니다. 설정 안내에서 건반 1–7번, 시계방향, 반시계방향을 확인한 뒤 설정을 적용합니다.
+- 확인한 스크래치 축의 방향을 저장하며, 필요하면 수동으로 반전할 수 있습니다.
+- 전체화면 1080p 캡처를 기준으로 녹숫·LIFT·SUDDEN+를 이용해 속도를 계산합니다. 자동 높이는 LIFT에 맞춰지며 수동 높이는 별도로 저장합니다. 표시 높이만 바꾸어도 계산된 속도는 바뀌지 않습니다.
+- LIFT가 0이면 자동으로 표시할 공간이 없다는 점을 안내합니다.
+- OBS에 넣을 주소·너비·높이·X/Y 위치를 각각 복사할 수 있습니다. 위치는 1P/2P와 LIFT를 기준으로 계산하고, 가로·세로 보정값을 저장합니다. 2P는 좌우 대칭으로 계산합니다.
+- 1080p 레인 크기 설정과 단계별 배치 안내를 제공합니다. 선택 사항인 OBS 배치 기능은 앱에 저장된 크기·위치를 읽을 수 있습니다. 이전 설정을 옮길 때 기존 수동 좌표를 보존합니다. 앱 설정만 바꾼다고 OBS 소스의 크기·위치가 자동으로 바뀌지는 않습니다.
+- 검정색 또는 투명 배경, 레인 너비, 1P/2P 배치, 표시 지연을 설정할 수 있습니다.
+- 로컬 설정 저장, 가져오기·내보내기, 동작 설명용 데모, 설정 페이지에 포커스가 있을 때의 키보드 테스트를 제공합니다.
+- 잘못된 설정 파일은 저장 전에 거부합니다. 이벤트 연결이 느리면 최신 설정과 입력 상태를 다시 보내, 설정 변경이 누락되지 않게 합니다.
+- OBS와 함께 시작하고 종료하는 연동 기능을 제공합니다. OBS가 시작한 서버만 종료하고, 따로 켜져 있던 서버는 유지합니다.
+- 공개 OBS 연동 기능은 오버레이만 실행합니다. 관련 없는 로컬 서비스를 찾거나 실행하지 않습니다.
+- 한국어·영어·일본어 UI와 단계별 사용자 안내를 제공합니다. 개발·기술 참고·릴리스 안내를 별도 문서로 나눴습니다.
+- AI 활용 사실, 기여 검토 기준, 검증 기록을 공개합니다. 자동 검사와 아직 남은 실제 장치·사람의 검토를 구분합니다. 사용 안내에는 선택·붙여넣기 단축키, 위치 보정, 종료 동작을 설명합니다.
+- MIT 라이선스 소스, Windows 패키징 도구, 런타임 라이선스 고지, 소스·앱 압축 파일의 체크섬, 자동 테스트, 수동으로 실행하는 Windows 빌드를 제공합니다.
+- Windows 릴리스 빌드는 해시로 고정한 공식 Python 3.13.16 x64 배포본과 해당 매니페스트·SBOM을 사용합니다. 준비 작업은 작업 폴더 안에서 이루어지며 시스템 Python을 변경하지 않습니다.
+- 런타임 출처 검사에서 압축을 푼 원본과 배포할 DLL/PYD를 공식 압축 파일과 비교합니다. Windows 패키지에는 구성 요소별 라이선스 고지, SBOM, 매니페스트 근거를 보관합니다. 별도의 런타임으로 시험판을 만들 수도 있지만, 출처를 확인하지 못한 항목은 미확인으로 기록합니다.
 
-The Windows app and source ZIP are built from the same project. The public distribution contains only the overlay and optional OBS integration; no iPad remote, combined streaming launcher or personal settings are included.
+Windows 앱과 소스 ZIP은 같은 프로젝트로 만듭니다. 공개 배포에는 오버레이와 선택 사항인 OBS 연동만 포함합니다. 아이패드 리모트, 통합 방송 실행기, 개인 설정은 포함하지 않습니다.
 
-## Known limitations
+## 알려진 제약
 
-Native controller input and OBS automatic startup are Windows-only. The overlay does not read game charts, judgments, speed settings or BPM. A held input note does not identify a chart long note. Continuous same-direction scratch movement cannot be divided into individual chart notes. Compatibility, simultaneous input with INFINITAS and exact capture synchronization require validation in the user's environment. The Windows app is an unsigned prototype. First-time installation on another PC and human language review are still pending; see [Validation](docs/VALIDATION.md) and the [technical reference](docs/REFERENCE.md).
+컨트롤러 입력을 직접 읽는 기능과 OBS 자동 실행은 Windows에서만 지원합니다. 게임의 채보, 판정, 속도 설정, BPM을 읽지 않습니다. 길게 표시된 입력 노트가 채보의 롱노트라는 뜻은 아닙니다. 같은 방향으로 계속 돌린 스크래치를 채보의 개별 노트로 나눌 수 없습니다. 호환성, INFINITAS와의 동시 입력, 캡처와의 정확한 동기화는 각 환경에서 확인해야 합니다. Windows 앱은 코드 서명이 없는 초기 시험판입니다. 다른 PC에서의 최초 설치와 사람의 언어 검토는 아직 남아 있습니다. [검증 현황](docs/VALIDATION.md)과 [기술 참고](docs/REFERENCE.md)를 확인하세요.
 
-The official-runtime build resolves the earlier libffi/XZ provenance gap; see [Validation](docs/VALIDATION.md) for the evidence and its limits. This check does not replace physical-controller testing, human review or a security audit.
+공식 런타임을 이용한 빌드로 이전의 libffi/XZ 출처 확인 문제를 해결했습니다. 근거와 확인 범위는 [검증 현황](docs/VALIDATION.md)에 기록했습니다. 이 검사는 실제 컨트롤러 테스트, 사람의 검토, 보안 감사를 대신하지 않습니다.

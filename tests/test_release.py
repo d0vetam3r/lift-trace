@@ -97,6 +97,8 @@ class ReleaseTests(unittest.TestCase):
         with zipfile.ZipFile(self.archive) as archive:
             names = set(archive.namelist())
             for document in DOCUMENTATION_FILES:
+                if not document.endswith(".md"):
+                    continue
                 markdown = archive.read(document).decode("utf-8")
                 for target in link_pattern.findall(markdown):
                     target = target.strip("<>")
