@@ -45,7 +45,7 @@ node --test tests/engine.test.mjs tests/client.test.mjs tests/render.test.mjs te
 
 Some Python tests open temporary loopback listeners. A restricted environment must permit them. Tests use synthetic input, so they require no controller and cannot verify physical compatibility or game-capture synchronization.
 
-`.github/workflows/verify.yml` is configured to run these checks on Windows and Ubuntu with Python 3.10/3.13 and Node 22. It has not yet run on GitHub for this project. Cross-platform test success, once obtained, would not add native controller support to non-Windows systems. A manual workflow dispatch is configured to prepare the pinned runtime, build the Windows app with provenance verification, run its smoke check and upload an Actions artifact; it does not publish a release.
+`.github/workflows/verify.yml` runs these checks on Windows and Ubuntu with Python 3.10/3.13 and Node 22. All four combinations passed in the recorded 2026-10-12 push run; see [Validation](VALIDATION.md) for the tested commit and run. Cross-platform test success does not add native controller support to non-Windows systems. A manual workflow dispatch is configured to prepare the pinned runtime, build the Windows app with provenance verification, run its smoke check and upload an Actions artifact; it does not publish a release. That Windows build job was skipped in the recorded push run.
 
 ## Structure
 

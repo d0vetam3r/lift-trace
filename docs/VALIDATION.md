@@ -29,7 +29,7 @@ The Python, JavaScript, runtime-provenance and packaged-app results below were r
 | Position reference | 1P reference compared with a fullscreen 1920 × 1080 game capture | 2P uses a mirrored estimate. Pixel alignment across other layouts or captures is unverified. |
 | Documentation | AI-assisted editorial pass | No completed independent human language-review report is recorded. |
 
-The GitHub workflow is configured but **has not run on GitHub** for this project. Local results must not be described as passing GitHub CI. No independent security audit is recorded.
+On 2026-10-12, [GitHub Actions push run 38171755965](https://github.com/d0vetam3r/lift-trace/actions/runs/38171755965) passed all four test jobs: Ubuntu and Windows, each with Python 3.10 and 3.13. The tested commit was [2da03af0287db3a12a2b54e305b344dc311c3ad2](https://github.com/d0vetam3r/lift-trace/commit/2da03af0287db3a12a2b54e305b344dc311c3ad2). The `windows-app` job was skipped because this was a push run; no Windows executable was built by that run. The packaged-app evidence above is from local builds, not a GitHub Windows build. No independent security audit is recorded.
 
 ## Still to check
 

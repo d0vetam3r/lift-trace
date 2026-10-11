@@ -58,7 +58,7 @@ The automated smoke test covers a headless packaged server and OBS-helper owners
 
 ## GitHub workflow and publication
 
-`.github/workflows/verify.yml` is configured to run Python/JavaScript tests on Windows and Ubuntu for pushes and pull requests. Its manually dispatched Windows build is configured to prepare the pinned runtime, build the packaged app with `--require-verified-runtime`, run the smoke check and upload an Actions artifact. No GitHub run has been recorded yet. The workflow **does not publish a GitHub Release**.
+`.github/workflows/verify.yml` runs Python/JavaScript tests on Windows and Ubuntu for pushes and pull requests. The recorded 2026-10-12 push run passed all four test combinations; see [Validation](VALIDATION.md) for its commit and run. Its manually dispatched Windows build is configured to prepare the pinned runtime, build the packaged app with `--require-verified-runtime`, run the smoke check and upload an Actions artifact. That job was skipped in the recorded push run, so it produced no Windows executable. The workflow **does not publish a GitHub Release**.
 
 For publication, choose the tested source revision, create its version tag and draft a GitHub Release. Upload the two ZIPs and checksums as release **Assets**. Put the Windows ZIP first in the release text with the label **Windows app — no Python installation required**; identify the source ZIP separately as **For contributors**.
 
