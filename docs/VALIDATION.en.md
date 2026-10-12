@@ -6,6 +6,14 @@
 
 This record describes the **0.1.0 prototype**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
 
+## Unreleased: automatic visibility foundations
+
+On 2026-10-13, the source on `codex/v020-extension-foundation` passed 68 Python and 73 JavaScript tests on Windows with Python 3.12.14 and Node 24.19.0. This development change is separate from the 0.1.0 evidence below; the version and public ZIPs are unchanged.
+
+Checks cover existing settings/display behavior after extracting INFINITAS calculations. Synthetic observations and mock OBS responses cover flicker, stale observations, start/stop, selected item identity and partial application failures. The source ZIP was built and extracted to check the replay tool and web asset serving. Initial restricted runs failed because of temporary-directory/loopback permissions; rerunning with an isolated temporary directory and permitted local communication passed.
+
+No real screen recognition, OBS connection, controller, broadcast, BMS or human language review was performed for this change, and no new Windows EXE was built. `auto_visibility.py` is a source experiment, not yet connected to the running app. Successful replay is not evidence of live automatic control. The next implementation and verification scope is in [Development](DEVELOPMENT.en.md).
+
 ## Runtime provenance checked
 
 On 2026-10-12, a complete Windows build passed `--require-verified-runtime` using the pinned official Python 3.13.16 x64 distribution. The check matched the official archive, Windows manifest and SPDX SBOM, verified 3,159 extracted original files, and compared every packaged DLL/PYD with the corresponding official runtime files. The resulting manifest records `bundledRuntime.runtimeProvenanceVerified: true` with an empty `unverifiedComponents` list.

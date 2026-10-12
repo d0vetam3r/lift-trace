@@ -57,6 +57,9 @@ Some Python tests open temporary loopback listeners. A restricted environment mu
 | `server.py` | Loopback HTTP, SSE, settings and shared demo timing. |
 | `native_input.py` | Windows WinMM enumeration and controller polling. |
 | `web/engine.js` | Input history, scratch tracking and elapsed-time falling positions. |
+| `web/games/infinitas.js` | INFINITAS geometry, speed and OBS placement calculations for normalized settings. |
+| `auto_visibility.py` | Experimental gameplay policy and adapter for selected OBS scene items; not used by the app yet. |
+| `tools/replay_visibility.py` | Replay synthetic observations through the visibility policy and print JSONL request records. |
 | `web/render.js` | Canvas renderer shared by preview and overlay. |
 | `web/client.js` | Server events, settings and input-mode coordination. |
 | `web/index.html`, `web/app.js` | Settings page, preview and guided setup UI. |
@@ -74,6 +77,28 @@ Some Python tests open temporary loopback listeners. A restricted environment mu
 | `tools/smoke_windows.py` | Extracted Windows ZIP startup and synthetic OBS-parent lifecycle checks. |
 
 The settings page is a client of the server, not the owner of native input polling. Closing a browser tab must not stop native input. The desktop manager and OBS helper own only the server processes they created; reuse never transfers shutdown ownership.
+
+## Automatic visibility foundation: source experiment
+
+INFINITAS geometry, speed and placement calculations now live in `web/games/infinitas.js`. Existing settings, function names and results are preserved. There is no activation UI, actual screen detector or OBS socket connection yet, and the app does not enable automatic visibility. Existing OBS startup and placement behavior stays the same. This change does not constitute a new release.
+
+`auto_visibility.py` is an internal experimental contract, not a stable third-party plugin API. The detector has `start()` / `observe()` / `stop()`; the session has `start()` / `tick()` / `stop()`. Observations carry a monotonic timestamp and `UNKNOWN` / `PLAYING` / `NOT_PLAYING`. By default, 0.2 seconds of gameplay enables selected items and 0.3 seconds of non-gameplay hides them. Unknown or stale observations also request hiding. `stop()` returns control without changing current visibility.
+
+The OBS adapter controls only selected items after checking scene UUID, scene item ID and source UUID. Groups and nested scenes are outside the current scope. OBS requests are not an atomic batch: some items may change before a failure. Failure marks the applied state unknown and stops automation. Hiding cannot be guaranteed while OBS is disconnected.
+
+When integrating this into the app, run capture and detection outside the input polling thread, and keep OBS credentials out of general settings broadcast to clients. Stop the session on connection or scene-collection changes, then reselect targets before restarting. Never replay old visibility commands after reconnection.
+
+To inspect the policy from source without OBS, run:
+
+```sh
+python tools/replay_visibility.py
+```
+
+Synthetic observations and fake OBS responses produce results and requests as JSONL (one JSON object per line). This does not test image recognition or real OBS behavior. An optional argument accepts a JSON file containing an observation array.
+
+Next priorities are an actual INFINITAS detector and OBS connection, followed by screen-profile and user-selected target setup. Then verify performance, failure recovery and release artifacts. The foundation alone is not evidence of a complete feature or supported environments.
+
+BMS is not supported yet. Scope implementation after a real user's player, skin, input method and verification fixtures are available. Adding a detector alone does not establish compatible input, lane layout or scrolling.
 
 ## Design constraints
 

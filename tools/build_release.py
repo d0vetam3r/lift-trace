@@ -36,6 +36,7 @@ RUNTIME_FILES = (
     "web/client.js",
     "web/demo.json",
     "web/engine.js",
+    "web/games/infinitas.js",
     "web/i18n.js",
     "web/index.html",
     "web/overlay.html",
@@ -83,6 +84,7 @@ DOCUMENTATION_FILES = (
 )
 
 SOURCE_FILES = (
+    "auto_visibility.py",
     ".gitignore",
     "package.json",
     "tools/build_release.py",
@@ -92,6 +94,7 @@ SOURCE_FILES = (
     "tools/python-runtime.json",
     "tools/smoke_windows.py",
     "tools/render_readme_demo.mjs",
+    "tools/replay_visibility.py",
     "requirements-build.txt",
     ".github/workflows/verify.yml",
     "tests/client.test.mjs",
@@ -105,6 +108,7 @@ SOURCE_FILES = (
     "tests/test_build_windows.py",
     "tests/test_runtime_provenance.py",
     "tests/test_desktop.py",
+    "tests/test_auto_visibility.py",
 )
 
 

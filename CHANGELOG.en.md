@@ -6,6 +6,7 @@ Changes to the public overlay distribution are recorded here. Internal developme
 
 ## Unreleased
 
+- Extract INFINITAS calculations while preserving existing settings and results, and add a source experiment for visibility policy and OBS scene-item control using synthetic observations. This does not enable automatic visibility in the app or add BMS support.
 - Reorganize the English, Korean and Japanese READMEs around an animated demonstration, Windows setup, features and task-based guide links.
 - Add an original synthetic demo rendered with the application's drawing code, with optional developer instructions for regenerating it.
 - Make Korean the default documentation language.

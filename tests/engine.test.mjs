@@ -50,6 +50,17 @@ test('fullscreen game geometry, green number, and calibration set pixels per sec
   assert.equal(getSpeed({ ...SPEED_1000, suddenNumber: 200, liftNumber: 300 }), 500);
 });
 
+test('game calculations still normalize saved string values before applying the INFINITAS model', () => {
+  const saved = { greenNumber: '433.8', suddenNumber: '200', liftNumber: '300', side: '2P',
+    obsOffsetX: '12.3', obsOffsetY: '-3.8', heightMode: 'manual', manualOverlayHeight: '555' };
+  assert.deepEqual(getGameGeometry(saved), {
+    baseHeight: 723, visibleHeight: 361.5, suddenHeight: 144.6, liftHeight: 216.9,
+  });
+  assert.equal(getSpeed(saved), 500);
+  assert.deepEqual(getObsPlacement(saved), { x: 1425, y: 502 });
+  assert.equal(normalizeSettings(saved).overlayHeight, 555);
+});
+
 test('overlay dimensions preserve speed and head/tail position, changing only retirement time', () => {
   const engines = [80, 240, 800].map(manualOverlayHeight => new TrailEngine({ ...SPEED_1000, manualOverlayHeight }));
   for (const engine of engines) {
