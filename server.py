@@ -14,7 +14,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from native_input import NativeInput
 from automation import Automation, AutomationError
@@ -308,6 +308,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, self.server.bridge.settings)
         elif path == "/api/automation":
             self._send(200, self.server.bridge.automation.status())
+        elif path == "/api/automation/catalog":
+            automation = self.server.bridge.automation
+            try:
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                scenes = query.get("sceneUuid", [None])
+                if len(scenes) != 1:
+                    raise AutomationError("Select one OBS scene.")
+                self._send(200, automation.catalog(scenes[0]))
+            except AutomationError as exc:
+                self._send(400, {"error": str(exc), "code": exc.code,
+                                 "status": automation.status(), "scenes": [], "items": []})
         elif path == "/api/events":
             self._events()
         elif path.startswith("/api/"):
@@ -419,7 +430,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif action == "template":
                     result = automation.template()
                 elif action == "start":
-                    result = automation.start(exclusive_control=value.get("exclusiveControl") is True)
+                    result = automation.start()
                 elif action == "stop":
                     result = automation.stop()
                 else:

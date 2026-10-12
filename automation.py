@@ -1,7 +1,7 @@
 """Explicitly armed, local OBS visibility automation, separate from input polling.
 
 OBS credentials live only in automation.json. No connection or worker starts on
-app launch. The operator must disable competing scene-switcher macros first.
+app launch. Avoid having another controller change the same scene items.
 """
 from __future__ import annotations
 
@@ -181,14 +181,41 @@ class Automation:
             self._state["error"] = "obs-request-failed"
         raise AutomationError("OBS request failed. Reconnect before trying again.", "obs-request-failed") from None
 
+    @staticmethod
+    def _catalog_items(items):
+        return [{key: item.get(key) for key in
+                 ("sceneItemId", "sceneItemIndex", "sourceUuid", "sourceName", "isGroup",
+                  "sourceType", "inputKind", "sceneItemEnabled")} for item in items]
+
+    def catalog(self, scene_uuid=None):
+        """Read names on demand, including while automation is running.
+
+        Do not hold the lifecycle lock: a slow name lookup must not prevent
+        stop/close. Transport requests are serialized by the existing connection.
+        A lookup failure never invokes reconnect, stop, configuration or writes.
+        """
+        connection = self._connection
+        if connection is None or not connection.connected:
+            return {"status": self.status(), "scenes": [], "items": []}
+        selected = self._config["sceneUuid"] if scene_uuid is None else scene_uuid
+        if selected is not None and (not isinstance(selected, str) or not selected or len(selected) > 128):
+            raise AutomationError("Select an OBS scene.")
+        try:
+            scenes = [{"sceneUuid": item["sceneUuid"], "sceneName": item["sceneName"]}
+                      for item in connection.request("GetSceneList", {})["scenes"]]
+            items = self._catalog_items(self._items(connection, selected)) if selected in {
+                scene["sceneUuid"] for scene in scenes} else []
+            if connection is not self._connection or not connection.connected:
+                raise ConnectionError("Connection changed during lookup")
+        except Exception:
+            raise AutomationError("Could not refresh OBS names. Try refreshing again.", "obs-catalog-failed") from None
+        return {"status": self.status(), "scenes": scenes, "items": items}
+
     def discover(self, scene_uuid):
         with self._operations:
             connection = self._idle_connection()
             try:
-                items = self._items(connection, scene_uuid)
-                items = [{key: item.get(key) for key in
-                          ("sceneItemId", "sourceUuid", "sourceName", "isGroup", "sourceType",
-                           "inputKind", "sceneItemEnabled")} for item in items]
+                items = self._catalog_items(self._items(connection, scene_uuid))
             except AutomationError:
                 raise
             except Exception:
@@ -256,10 +283,8 @@ class Automation:
                 self._state["error"] = None
             return {"status": self.status()}
 
-    def start(self, *, exclusive_control=False):
+    def start(self):
         with self._operations:
-            if exclusive_control is not True:
-                raise AutomationError("Disable other controllers of these items before starting.", "exclusive-control-required")
             connection = self._idle_connection()
             config = _selection(self._config)
             if not self.template_path.is_file() or self._invalid_template:

@@ -6,7 +6,8 @@ Changes to the public overlay distribution are recorded here. Internal developme
 
 ## Unreleased
 
-- Extract INFINITAS calculations while preserving existing settings and results. Connect optional experimental automatic visibility to the app, with local OBS WebSocket connection, reference capture, targets selected by item ID and manual start/stop. The fixed 1080p SCORE-region profile includes the pre-song play UI.
+- Extract INFINITAS calculations while preserving existing settings and results. Connect optional experimental automatic visibility to the app, with local OBS WebSocket connection, play-screen registration, target selection by actual scene/source names and manual start/stop. The fixed 1080p SCORE-region profile includes the pre-song play UI.
+- Add or exclude automation targets with checkboxes and distinguish duplicate source placements by upper/lower OBS list position. Reopening settings restores names and selections without stopping active automation. Shorten first-registration guidance, collapse additional help and remove the separate start acknowledgement.
 - Leave automation off after app restart and stop it on OBS disconnect or scene-collection change. Keep the OBS password and local reference image outside ordinary settings export and distribution files. BMS and an external plugin loader are not implemented; this feature is not in public v0.1.0.
 - Reorganize the English, Korean and Japanese READMEs around an animated demonstration, Windows setup, features and task-based guide links.
 - Add an original synthetic demo rendered with the application's drawing code, with optional developer instructions for regenerating it.

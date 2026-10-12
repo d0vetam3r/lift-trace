@@ -138,8 +138,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual([item["sceneItemId"] for item in payload["items"]], [1, 2, 3])
         self.assertEqual(self.request("POST", "/api/automation/config", CONFIG)[0], 200)
         self.assertTrue(self.request("POST", "/api/automation/template", {})[1]["status"]["templateReady"])
-        self.assertEqual(self.request("POST", "/api/automation/start", {})[1]["code"], "exclusive-control-required")
-        self.assertEqual(self.request("POST", "/api/automation/start", {"exclusiveControl": True})[0], 200)
+        self.assertEqual(self.request("POST", "/api/automation/start", {})[0], 200)
         self.assertFalse(self.request("POST", "/api/automation/stop", {})[1]["status"]["running"])
         self.assertEqual(self.request("GET", "/api/settings"), (200, {}))
         self.assertTrue(channel.empty())
@@ -158,6 +157,36 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("private-only", json.dumps(payload))
         self.assertFalse(payload["status"]["connected"])
         self.assertEqual(self.request("POST", "/api/automation/unknown", {})[0], 404)
+
+    def test_catalog_endpoint_is_read_only_and_restores_names_during_automation(self):
+        connections = self.automation_fixture()
+        code, catalog = self.request("GET", "/api/automation/catalog")
+        self.assertEqual(code, 200)
+        self.assertEqual(catalog["scenes"], [])
+        self.assertEqual(catalog["items"], [])
+        self.assertEqual(connections, [])
+        self.request("POST", "/api/automation/connect", {"password": "private-only"})
+        self.request("POST", "/api/automation/config", CONFIG)
+        self.request("POST", "/api/automation/template", {})
+        # The old optional field no longer gates a user's explicit Start action.
+        self.assertEqual(self.request("POST", "/api/automation/start", {"exclusiveControl": False})[0], 200)
+        with self.bridge.lock:
+            code, catalog = self.request("GET", "/api/automation/catalog?sceneUuid=scene")
+        self.assertEqual(code, 200)
+        self.assertTrue(catalog["status"]["running"])
+        self.assertEqual(catalog["scenes"][0]["sceneName"], "My scene")
+        self.assertEqual([item["sourceName"] for item in catalog["items"]], ["game", "game", "camera"])
+        self.assertEqual([item["sceneItemIndex"] for item in catalog["items"]], [0, 1, 2])
+        self.assertNotIn("private-only", json.dumps(catalog))
+        connection = connections[-1]
+        connection.fail_kind = "GetSceneList"
+        code, failure = self.request("GET", "/api/automation/catalog")
+        self.assertEqual(code, 400)
+        self.assertEqual(failure["code"], "obs-catalog-failed")
+        self.assertTrue(failure["status"]["connected"])
+        self.assertTrue(failure["status"]["running"])
+        self.assertNotIn("private-only", json.dumps(failure))
+        self.assertEqual(self.request("GET", "/api/automation/catalog?sceneUuid=scene&sceneUuid=other")[0], 400)
 
     def test_body_limit_and_json_validation(self):
         self.assertEqual(self.request("POST", "/api/settings", raw=b"x" * (MAX_BODY + 1))[0], 413)

@@ -23,7 +23,9 @@ class FakeConnection:
         self.calls = []
         self.fail_kind = None
         self.fail_item = None
-        self.items = [{"sceneItemId": index, "sourceUuid": source, "sourceName": source,
+        self.scenes = [{"sceneUuid": "scene", "sceneName": "My scene"}]
+        self.items = [{"sceneItemId": index, "sceneItemIndex": index - 1,
+                       "sourceUuid": source, "sourceName": source,
                        "isGroup": False, "sourceType": "OBS_SOURCE_TYPE_INPUT", "sceneItemEnabled": True}
                       for index, source in ((1, "game"), (2, "game"), (3, "camera"))]
 
@@ -39,7 +41,7 @@ class FakeConnection:
             raise ConnectionError("Private password must never escape: " + self.password)
         self.calls.append((kind, dict(data)))
         if kind == "GetSceneList":
-            return {"scenes": [{"sceneUuid": "scene", "sceneName": "My scene"}]}
+            return {"scenes": self.scenes}
         if kind == "GetSceneItemList":
             return {"sceneItems": self.items}
         return {}
@@ -161,24 +163,100 @@ class AutomationTests(unittest.TestCase):
         connection.items[-1]["isGroup"] = False
         connection.items[-1]["sourceUuid"] = "replacement"
         with self.assertRaises(AutomationError):
-            self.automation.start(exclusive_control=True)
+            self.automation.start()
         self.assertEqual(self.writes(connection), [])
 
-    def test_start_requires_fresh_explicit_exclusive_control_ack_and_template(self):
+    def test_start_requires_template_and_remains_an_explicit_action(self):
         self.automation.connect({"port": 4455})
         self.automation.configure(CONFIG)
         with self.assertRaises(AutomationError) as caught:
             self.automation.start()
-        self.assertEqual(caught.exception.code, "exclusive-control-required")
-        with self.assertRaises(AutomationError) as caught:
-            self.automation.start(exclusive_control=True)
         self.assertEqual(caught.exception.code, "template-required")
+        self.automation.template()
+        self.assertFalse(self.automation.status()["running"])
+        self.automation.start()
+        self.assertTrue(self.automation.status()["running"])
+
+    def test_catalog_restores_current_names_while_running_without_writes_or_persistence(self):
+        connection = self.ready()
+        self.automation.start()
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        worker = self.automation._thread
+        saved = (self.root / "automation.json").read_bytes()
+        template = self.automation.template_path.read_bytes()
+        writes = list(self.writes(connection))
+        connection.scenes[0]["sceneName"] = "Renamed OBS scene"
+        connection.items[1]["sourceName"] = "Game capture"
+        count = len(connection.calls)
+        catalog = self.automation.catalog()
+        self.assertEqual(catalog["scenes"], [{"sceneUuid": "scene", "sceneName": "Renamed OBS scene"}])
+        self.assertEqual(catalog["items"][1]["sourceName"], "Game capture")
+        self.assertEqual(catalog["items"][1]["sceneItemIndex"], 1)
+        self.assertEqual(connection.calls[count:], [("GetSceneList", {}),
+                                                   ("GetSceneItemList", {"sceneUuid": "scene"})])
+        self.assertTrue(catalog["status"]["running"])
+        self.assertIs(self.automation._thread, worker)
+        self.assertEqual(self.writes(connection), writes)
+        self.assertEqual((self.root / "automation.json").read_bytes(), saved)
+        self.assertEqual(self.automation.template_path.read_bytes(), template)
+        self.assertNotIn("private-test-password", json.dumps(catalog))
+
+    def test_catalog_disconnected_does_not_connect_and_read_failure_does_not_stop_worker(self):
+        catalog = self.automation.catalog()
+        self.assertEqual(catalog["scenes"], [])
+        self.assertEqual(catalog["items"], [])
+        self.assertEqual(self.connections, [])
+        connection = self.ready()
+        self.automation.start()
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        connection.fail_kind = "GetSceneList"
+        with self.assertRaises(AutomationError) as caught:
+            self.automation.catalog("scene")
+        self.assertEqual(caught.exception.code, "obs-catalog-failed")
+        self.assertNotIn("private-test-password", str(caught.exception))
+        self.assertTrue(connection.connected)
+        self.assertTrue(self.automation.status()["running"])
+        self.assertIsNone(self.automation.status()["error"])
+
+    def test_catalog_slow_read_does_not_block_stop_or_return_a_replaced_connection(self):
+        connection = self.ready()
+        self.automation.start()
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        entered, release = threading.Event(), threading.Event()
+        original = connection.request
+        errors = []
+
+        def slow_request(kind, data):
+            if kind == "GetSceneList":
+                entered.set()
+                release.wait(timeout=1)
+            return original(kind, data)
+
+        def lookup():
+            try:
+                self.automation.catalog()
+            except AutomationError as error:
+                errors.append(error.code)
+
+        connection.request = slow_request
+        reader = threading.Thread(target=lookup)
+        reader.start()
+        try:
+            self.assertTrue(entered.wait(timeout=1))
+            self.automation.stop()
+            self.assertFalse(self.automation.status()["running"])
+            self.assertTrue(reader.is_alive())
+            self.automation.connect({})
+        finally:
+            release.set()
+            reader.join(timeout=1)
+        self.assertEqual(errors, ["obs-catalog-failed"])
 
     def test_invalid_saved_reference_requires_recapture_without_a_false_connection_error(self):
         connection = self.ready()
         with patch.object(FakeDetector, "start", side_effect=ValueError("Invalid local reference")):
             with self.assertRaises(AutomationError) as caught:
-                self.automation.start(exclusive_control=True)
+                self.automation.start()
         self.assertEqual(caught.exception.code, "template-invalid")
         self.assertTrue(connection.connected)
         self.assertFalse(self.automation.status()["templateReady"])
@@ -189,7 +267,7 @@ class AutomationTests(unittest.TestCase):
 
     def test_stop_yields_to_manual_and_only_selected_placements_are_written(self):
         connection = self.ready()
-        self.automation.start(exclusive_control=True)
+        self.automation.start()
         self.wait_for(lambda: self.automation.status()["applied"] is True)
         self.assertEqual({item["sceneItemId"] for item in self.writes(connection)}, {2, 3})
         self.assertEqual([item["sceneItemEnabled"] for item in self.writes(connection)], [False, False, True, True])
@@ -200,12 +278,12 @@ class AutomationTests(unittest.TestCase):
         self.assertTrue(connection.connected)
         time.sleep(.12)
         self.assertEqual(len(connection.calls), count)
-        self.automation.start(exclusive_control=True)
+        self.automation.start()
         self.wait_for(lambda: self.automation.status()["applied"] is False)
 
     def test_stop_during_observation_cancels_future_writes_and_preserves_manual_state(self):
         connection = self.ready()
-        self.automation.start(exclusive_control=True)
+        self.automation.start()
         self.wait_for(lambda: self.automation.status()["applied"] is True)
         detector = self.detectors[-1]
         detector.entered, detector.release = threading.Event(), threading.Event()
@@ -224,22 +302,22 @@ class AutomationTests(unittest.TestCase):
 
     def test_runtime_capture_failure_stops_and_requires_reconnect_not_just_restart(self):
         connection = self.ready()
-        self.automation.start(exclusive_control=True)
+        self.automation.start()
         self.wait_for(lambda: self.automation.status()["applied"] is True)
         self.detectors[-1].fail = True
         self.wait_for(lambda: not self.automation.status()["running"])
         self.assertFalse(connection.connected)
         self.assertNotIn("private", json.dumps(self.automation.status()))
         with self.assertRaises(AutomationError):
-            self.automation.start(exclusive_control=True)
+            self.automation.start()
         self.automation.connect({"port": 4455})
         self.assertEqual(self.connections[-1].password, "private-test-password")
-        self.automation.start(exclusive_control=True)
+        self.automation.start()
         self.wait_for(lambda: self.automation.status()["applied"] is False)
 
     def test_known_temporarily_unavailable_capture_hides_and_can_recover_without_reconnect(self):
         connection = self.ready()
-        self.automation.start(exclusive_control=True)
+        self.automation.start()
         self.wait_for(lambda: self.automation.status()["applied"] is True)
         detector = self.detectors[-1]
         detector.state, detector.last_error = PlayState.UNKNOWN, "capture-unavailable"
@@ -256,7 +334,7 @@ class AutomationTests(unittest.TestCase):
     def test_partial_obs_failure_does_not_retry_or_claim_success(self):
         connection = self.ready()
         connection.fail_item = 3
-        self.automation.start(exclusive_control=True)
+        self.automation.start()
         self.wait_for(lambda: not self.automation.status()["running"])
         self.assertIsNone(self.automation.status()["applied"])
         self.assertFalse(connection.connected)

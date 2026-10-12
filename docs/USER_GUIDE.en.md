@@ -144,18 +144,27 @@ If OBS starts the input display, closing that OBS also stops the display. If Lif
 
 This section describes an **experimental feature in the current development source**. It is not in the public v0.1.0 ZIP. You can continue using the existing manual overlay. Windows app builds containing automatic visibility bundle its libraries; source users should follow the [development guide](DEVELOPMENT.en.md).
 
-Show cameras, the overlay and a duplicated gauge together while the play UI is visible. The current profile checks the **SCORE label region of an original 1920 × 1080 capture**. It includes the pre-song play UI, rather than detecting only the time when chart notes are moving. Other layouts, resolutions and BMS are not supported.
+Show cameras, the overlay and a duplicated gauge together while the play UI is visible. **Register once from a play screen with the SCORE label visible.**
 
-1. In OBS, open **Tools → WebSocket Server Settings**, enable the server and note its port and password. On the Lift Trace settings page, open **INFINITAS automatic visibility · experimental**, enter those values and click **Connect to OBS**. The connection is to OBS on this PC. A blank password field uses the previously saved password.
-2. Choose the **Scene** and **Original game capture · keep this visible**. Select the original full game image and leave it visible in OBS. Do not choose the cropped gauge copy as the original.
-3. Under **Items to show together**, select the cameras, input overlay, gauge copy or other targets, then click **Save selected items**. Matching names with different `#numbers` identify separate items. The original capture is excluded from targets. Select 1–8 top-level items in one scene; groups and items inside nested scenes are not supported.
-4. While the original capture shows the play UI and **SCORE** label, click **Save reference from the play screen**. Do not save a song-selection or result screen as the reference. Only the small reference image is saved on this PC.
-5. **Stop Advanced Scene Switcher or other rules controlling the same items first.** The app does not stop them for you. Check the confirmation box, then click **Start automatic visibility**.
+1. In OBS, open **Tools → WebSocket Server Settings**, enable the server and note its port and password. On the Lift Trace settings page, open **Show sources during INFINITAS play · experimental**, enter those values and click **Connect to OBS**. The connection is to OBS on this PC. A blank password field uses the previously saved password.
+2. Choose your OBS scene and game-image source from the lists of actual OBS names. Select the original full game image and leave it visible in OBS. When a source appears more than once, the label indicates its upper/lower position in OBS's source list. Do not choose the cropped gauge copy as the original.
+3. Check the cameras, input overlay, gauge copy or other sources to control, then click **Save selection**. Checking adds a source to automatic control; unchecking excludes it. This does not delete the source from OBS. The original capture is excluded from targets.
+4. With the **SCORE** label visible in the original play screen, click **Register play screen**. Do not register a song-selection or result screen.
+5. Click **Start automatic visibility**.
 6. Check that the targets appear after 0.2 seconds of play UI and hide after 0.3 seconds outside it. Check song selection → play → results yourself; the original game image should stay visible. See [Validation](VALIDATION.en.md) for recorded evidence and remaining checks.
 
-**Stop · return to manual control** leaves current visibility unchanged; you can then use OBS's eye icons. An OBS disconnect or scene-collection change stops automation. Reconnect, review and save the selection, then start explicitly; there is no automatic retry. **Start automatic visibility manually after each new Lift Trace launch too.**
+Reopening the settings page while connected restores actual names and your saved selection without stopping running automation. If you change names or items in OBS, click **Refresh list** to check them again.
 
-The OBS password and selection are stored in `automation.json` in the local data directory; the reference is `automation-template.png`. Neither is included in the ordinary **Export settings** file, so reconnect, select targets and capture a reference again after an update. Do not attach these private files to a repository or issue report.
+**Stop automatic visibility** leaves current visibility unchanged; you can then use OBS's eye icons. An OBS disconnect or scene-collection change stops automation. Reconnect, review and save the selection, then start explicitly; there is no automatic retry. **Start automatic visibility manually after each new Lift Trace launch too.**
+
+<details>
+<summary>Supported scope and additional guidance</summary>
+
+The current profile checks the SCORE region of an original 1920 × 1080 capture, including pre-song play UI. Other layouts, resolutions and BMS are not supported. Select 1–8 top-level items in one scene; groups and items inside nested scenes are outside the scope. Advanced Scene Switcher or other rules controlling the same items can issue conflicting visibility commands, so stop one controller. Lift Trace does not stop other programs automatically.
+
+The OBS password and selection are stored in `automation.json` in the local data directory; the reference is `automation-template.png`. Neither is included in the ordinary **Export settings** file, so reconnect, select targets and register the play screen again after an update. Do not attach these private files to a repository or issue report.
+
+</details>
 
 ## Update or remove
 
