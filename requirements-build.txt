@@ -1,4 +1,5 @@
-# Build tools only; the application itself uses the Python standard library.
+# Build tools and the optional automatic-visibility runtime.
+-r requirements-automation.txt
 PyInstaller==6.22.3
 altgraph==0.17.5
 packaging==26.3

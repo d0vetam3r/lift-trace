@@ -18,6 +18,8 @@ The bundled runtimes retain their own licenses. The verified Windows build inclu
 
 Settings and logs are created in `data/` beside the app by default. If that folder cannot be written, a startup log may be saved under `%TEMP%/LiftTrace/`. Logs can include usernames, paths and device details. Review relevant excerpts before attaching them to a public issue; do not share the entire working folder.
 
+If you opt into unreleased automatic visibility, the local OBS WebSocket password and targets are stored in `automation.json`; the small SCORE reference explicitly captured by the user is stored in `automation-template.png`. The password file is not encrypted. The password and reference are excluded from ordinary settings responses, events and settings export. The default `data/` directory is ignored by Git, and these files are excluded from public distribution. Do not upload them to a repository or public report, including when using a custom data directory. Full game screenshots are processed in memory without being saved.
+
 Use a clean release archive for redistribution. The release allowlists exclude local settings, private credentials, game assets, captures and unrelated services.
 
 The code and documentation were developed with extensive AI assistance. Neither that disclosure nor passing automated tests is a security audit. Completed checks and unverified areas are listed in [Validation](docs/VALIDATION.en.md).

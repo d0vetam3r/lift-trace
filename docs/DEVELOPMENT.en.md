@@ -16,7 +16,7 @@ Requirements:
 - **Node.js 18+** for JavaScript tests only.
 - Windows for native controller input and OBS automatic startup; OBS Studio for manual integration checks.
 
-There are no third-party Python or npm packages required to run the source application. From the source root:
+Existing controller input and the manual OBS overlay need no third-party Python or npm packages. For optional automatic visibility from source, first run `python -m pip install -r requirements-automation.txt` to install `websocket-client==1.9.2` and `Pillow==12.3.0`. Ordinary input and the manual overlay still work without these dependencies. Windows app builds bundle them; app users do not need an installation command. From the source root:
 
 ```sh
 python desktop.py
@@ -42,7 +42,7 @@ Use a writable `--data-dir` for isolated checks. The manager supports `--languag
 
 ```sh
 python -m unittest discover -s tests -p "test_*.py" -v
-node --test tests/engine.test.mjs tests/client.test.mjs tests/render.test.mjs tests/i18n.test.mjs tests/setup.test.mjs
+node --test tests/engine.test.mjs tests/client.test.mjs tests/render.test.mjs tests/i18n.test.mjs tests/setup.test.mjs tests/automation.test.mjs
 ```
 
 Some Python tests open temporary loopback listeners. A restricted environment must permit them. Tests use synthetic input, so they require no controller and cannot verify physical compatibility or game-capture synchronization.
@@ -58,7 +58,9 @@ Some Python tests open temporary loopback listeners. A restricted environment mu
 | `native_input.py` | Windows WinMM enumeration and controller polling. |
 | `web/engine.js` | Input history, scratch tracking and elapsed-time falling positions. |
 | `web/games/infinitas.js` | INFINITAS geometry, speed and OBS placement calculations for normalized settings. |
-| `auto_visibility.py` | Experimental gameplay policy and adapter for selected OBS scene items; not used by the app yet. |
+| `auto_visibility.py` | Gameplay policy and adapter for selected OBS scene items. |
+| `automation.py`, `web/automation.js` | Explicit connection, target selection, reference capture and start/stop UI; automation work separate from input polling. |
+| `obs_connection.py`, `infinitas_detector.py` | Local OBS WebSocket v5 connection and fixed INFINITAS SCORE-region detection. |
 | `tools/replay_visibility.py` | Replay synthetic observations through the visibility policy and print JSONL request records. |
 | `web/render.js` | Canvas renderer shared by preview and overlay. |
 | `web/client.js` | Server events, settings and input-mode coordination. |
@@ -78,15 +80,19 @@ Some Python tests open temporary loopback listeners. A restricted environment mu
 
 The settings page is a client of the server, not the owner of native input polling. Closing a browser tab must not stop native input. The desktop manager and OBS helper own only the server processes they created; reuse never transfers shutdown ownership.
 
-## Automatic visibility foundation: source experiment
+## Optional INFINITAS automatic visibility
 
-INFINITAS geometry, speed and placement calculations now live in `web/games/infinitas.js`. Existing settings, function names and results are preserved. There is no activation UI, actual screen detector or OBS socket connection yet, and the app does not enable automatic visibility. Existing OBS startup and placement behavior stays the same. This change does not constitute a new release.
+The current development source connects a local OBS WebSocket client, target-selection UI and SCORE-region detector. This feature is not in public v0.1.0, and this change does not publish a new release. See the [user guide](USER_GUIDE.en.md#optional-infinitas-automatic-visibility-unreleased) for setup. INFINITAS geometry, speed and placement calculations live in `web/games/infinitas.js`; existing settings, function names and results are preserved.
+
+The first screen profile compares only the SCORE region `(170, 953, 90, 20)` of an unscaled 1920 × 1080 original source. The user saves a reference from the play UI before use. Detection includes the pre-song play UI; it does not identify only the interval containing chart notes or support arbitrary skins and resolutions. Screenshots are processed in memory; only the small reference explicitly captured by the user is saved locally.
 
 `auto_visibility.py` is an internal experimental contract, not a stable third-party plugin API. The detector has `start()` / `observe()` / `stop()`; the session has `start()` / `tick()` / `stop()`. Observations carry a monotonic timestamp and `UNKNOWN` / `PLAYING` / `NOT_PLAYING`. By default, 0.2 seconds of gameplay enables selected items and 0.3 seconds of non-gameplay hides them. Unknown or stale observations also request hiding. `stop()` returns control without changing current visibility.
 
-The OBS adapter controls only selected items after checking scene UUID, scene item ID and source UUID. Groups and nested scenes are outside the current scope. OBS requests are not an atomic batch: some items may change before a failure. Failure marks the applied state unknown and stops automation. Hiding cannot be guaranteed while OBS is disconnected.
+The OBS adapter controls 1–8 selected top-level items after checking scene UUID, scene item ID and source UUID. The original capture item stays visible and is excluded from targets. A duplicated gauge from the same source is selected by its separate item ID, rather than by name or list order. Groups and nested scenes are outside the current scope. OBS requests are not an atomic batch: some items may change before a failure. Failure marks the applied state unknown and stops automation. Hiding cannot be guaranteed while OBS is disconnected.
 
-When integrating this into the app, run capture and detection outside the input polling thread, and keep OBS credentials out of general settings broadcast to clients. Stop the session on connection or scene-collection changes, then reselect targets before restarting. Never replay old visibility commands after reconnection.
+Capture and detection run on a worker separate from input polling. The OBS password and selection are stored in `automation.json` in the data directory; the reference is `automation-template.png`. The password and image are excluded from general settings responses, events, settings export and public distribution. The default `data/` directory is ignored by Git; do not commit a custom data directory either. This local file is not an encrypted password vault.
+
+Automation starts stopped on every app launch. Stop Advanced Scene Switcher or other rules controlling the same items, confirm the checkbox, then start explicitly. A disconnect or scene-collection change stops automation; there is no automatic reconnect, retry or replay of old commands. Reconnect, review and save the selection, then start again. Manual stop leaves current visibility unchanged.
 
 To inspect the policy from source without OBS, run:
 
@@ -96,9 +102,9 @@ python tools/replay_visibility.py
 
 Synthetic observations and fake OBS responses produce results and requests as JSONL (one JSON object per line). This does not test image recognition or real OBS behavior. An optional argument accepts a JSON file containing an observation array.
 
-Next priorities are an actual INFINITAS detector and OBS connection, followed by screen-profile and user-selected target setup. Then verify performance, failure recovery and release artifacts. The foundation alone is not evidence of a complete feature or supported environments.
+Automated tests, synthetic images, real OBS operation, simultaneous gameplay and packaged execution are separate evidence. Refer to [Validation](VALIDATION.en.md) for completed checks and remaining performance, recovery and distribution checks. Wiring up the code does not establish verification on real equipment.
 
-BMS is not supported yet. Scope implementation after a real user's player, skin, input method and verification fixtures are available. Adding a detector alone does not establish compatible input, lane layout or scrolling.
+BMS and an external plugin loader are not implemented. Scope implementation after a real user's player, skin, input method and verification fixtures are available. Adding a detector alone does not establish compatible input, lane layout or scrolling.
 
 ## Design constraints
 

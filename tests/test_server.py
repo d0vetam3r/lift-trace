@@ -8,6 +8,8 @@ import time
 import unittest
 
 from server import Bridge, CLIENT_QUEUE_SIZE, LocalServer, MAX_BODY
+from automation import Automation
+from tests.test_automation import CONFIG, FakeConnection, FakeDetector
 
 
 class FakeNative:
@@ -107,6 +109,55 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(reloaded.settings, settings)
         self.assertEqual(channel.get_nowait(), {"type": "settings", "settings": settings})
         reloaded.close()
+
+    def automation_fixture(self):
+        connections = []
+
+        def factory(*args, **kwargs):
+            connection = FakeConnection(*args, **kwargs)
+            connections.append(connection)
+            return connection
+
+        self.bridge.automation.close()
+        self.bridge.automation = Automation(
+            self.root / "data", connection_factory=factory, detector_factory=FakeDetector,
+            template_capture=lambda connection, source, path: path.write_bytes(b"fake template"))
+        return connections
+
+    def test_automation_routes_keep_credentials_out_of_settings_events_and_static_files(self):
+        self.automation_fixture()
+        channel = self.subscribe_clean()
+        self.assertFalse(self.request("GET", "/api/automation")[1]["running"])
+        code, payload = self.request("POST", "/api/automation/connect", {"port": 4455, "password": "private-only"})
+        self.assertEqual(code, 200)
+        self.assertEqual(payload["scenes"], [{"sceneUuid": "scene", "sceneName": "My scene"}])
+        self.assertTrue(payload["status"]["config"]["hasPassword"])
+        self.assertNotIn("private-only", json.dumps(payload))
+        code, payload = self.request("POST", "/api/automation/discover", {"sceneUuid": "scene"})
+        self.assertEqual(code, 200)
+        self.assertEqual([item["sceneItemId"] for item in payload["items"]], [1, 2, 3])
+        self.assertEqual(self.request("POST", "/api/automation/config", CONFIG)[0], 200)
+        self.assertTrue(self.request("POST", "/api/automation/template", {})[1]["status"]["templateReady"])
+        self.assertEqual(self.request("POST", "/api/automation/start", {})[1]["code"], "exclusive-control-required")
+        self.assertEqual(self.request("POST", "/api/automation/start", {"exclusiveControl": True})[0], 200)
+        self.assertFalse(self.request("POST", "/api/automation/stop", {})[1]["status"]["running"])
+        self.assertEqual(self.request("GET", "/api/settings"), (200, {}))
+        self.assertTrue(channel.empty())
+        for path in ("/automation.json", "/data/automation.json", "/automation-template.png"):
+            self.assertEqual(self.request("GET", path)[0], 404)
+
+    def test_automation_errors_are_redacted_and_do_not_take_the_controller_lock(self):
+        connections = self.automation_fixture()
+        with self.bridge.lock:
+            self.assertEqual(self.request("POST", "/api/automation/connect", {"password": "private-only"})[0], 200)
+            self.assertEqual(self.request("GET", "/api/automation")[0], 200)
+        connections[-1].fail_kind = "GetSceneItemList"
+        code, payload = self.request("POST", "/api/automation/discover", {"sceneUuid": "scene"})
+        self.assertEqual(code, 400)
+        self.assertEqual(payload["code"], "obs-request-failed")
+        self.assertNotIn("private-only", json.dumps(payload))
+        self.assertFalse(payload["status"]["connected"])
+        self.assertEqual(self.request("POST", "/api/automation/unknown", {})[0], 404)
 
     def test_body_limit_and_json_validation(self):
         self.assertEqual(self.request("POST", "/api/settings", raw=b"x" * (MAX_BODY + 1))[0], 413)

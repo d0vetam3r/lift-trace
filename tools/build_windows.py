@@ -31,6 +31,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.build_release import ROOT, collect_files, read_version, write_release_checksums
 from tools.runtime_provenance import verify_runtime
+from tools.automation_dependencies import verify_dependencies
 
 
 def fetch_license(url: str) -> bytes:
@@ -107,11 +108,15 @@ def require_release_provenance(details: dict, require_verified_runtime: bool) ->
             "Runtime provenance check failed: " + details.get("provenance", {}).get("error", "unverified runtime")
             + ". Run tools/prepare_runtime.py and build with its virtual environment. "
               "An ordinary local build may proceed with an unverified-runtime warning.")
+    if require_verified_runtime and details.get("automationProvenanceVerified") is False:
+        raise RuntimeError("Automation dependency provenance check failed")
 
 
-def inspect_runtime(base: Path, internal: Path | None = None) -> dict:
+def inspect_runtime(base: Path, internal: Path | None = None, dependency_binaries: dict | None = None) -> dict:
     try:
-        return verify_runtime(base, internal)
+        if dependency_binaries is None:
+            return verify_runtime(base, internal)
+        return verify_runtime(base, internal, dependency_binaries=dependency_binaries)
     except RuntimeError as error:
         return {"verified": False, "error": str(error)}
 
@@ -157,7 +162,8 @@ def collect_licenses(target: Path, require_verified_runtime: bool = False) -> di
     zlib_version = release_version(zlib.ZLIB_RUNTIME_VERSION, "zlib")
     mpdecimal_version = release_version(decimal.__libmpdec_version__, "mpdecimal")
     cpython = f"https://raw.githubusercontent.com/python/cpython/v{python_version}"
-    provenance = inspect_runtime(base, internal)
+    automation = verify_dependencies(ROOT / "artifacts" / "dependency-wheels", internal, target)
+    provenance = inspect_runtime(base, internal, automation["bundledFiles"])
     require_release_provenance({"runtimeProvenanceVerified": provenance["verified"], "provenance": provenance},
                                require_verified_runtime)
     reference = None
@@ -193,6 +199,8 @@ def collect_licenses(target: Path, require_verified_runtime: bool = False) -> di
         "Python.txt": (python_license.read_bytes(), "https://www.python.org/psf/license/"),
         "PyInstaller.txt": (Path(pyinstaller_license).read_bytes(), "https://pyinstaller.org/en/stable/license.html"),
     }
+    sources.update({name: ((target / name).read_bytes(), url)
+                    for name, url in automation["licenses"].items()})
     upstream = {
         "Python-incorporated-software.txt": f"{cpython}/Doc/license.rst",
         "Tcl.txt": f"https://raw.githubusercontent.com/tcltk/tcl/core-{tcl_version.replace('.', '-')}/license.terms",
@@ -248,6 +256,8 @@ def collect_licenses(target: Path, require_verified_runtime: bool = False) -> di
         "tcl": tcl_version, "tk": tk_version, "openssl": ssl.OPENSSL_VERSION,
         "zlib": zlib_version, "mpdecimal": mpdecimal_version, "expat": expat_version,
         "runtimeProvenanceVerified": provenance["verified"],
+        "automationProvenanceVerified": automation["verified"],
+        "automationProvenance": automation,
         "unverifiedComponents": [] if provenance["verified"] else ["custom Python distribution"],
         "provenance": provenance,
         "libffi": ffi if provenance["verified"] else None,
@@ -263,7 +273,7 @@ def write_notices(target: Path, details: dict) -> None:
     expat = f" Expat {details['expat']} is also bundled." if details["expat"] else " Expat is not bundled as a separate module."
     if details["runtimeProvenanceVerified"]:
         provenance = details["provenance"]
-        status = f"""The extracted Python runtime and every packaged DLL/PYD match the pinned
+        status = f"""The extracted Python runtime and packaged Python DLL/PYD files match the pinned
 [Python Software Foundation Windows archive]({provenance['archive']['url']})
 (SHA-256 `{provenance['archive']['sha256']}`). The matching
 [official SBOM](provenance/python-runtime.spdx.json) identifies libffi {details['libffi']}
@@ -316,6 +326,16 @@ PyInstaller.txt
 includes its bootloader exception, which permits application distribution under
 the application's own license. Apache-2.0.txt also covers PyInstaller runtime hooks
 and OpenSSL 3.
+
+Pillow {details['automationProvenance']['packages']['pillow']['version']} and
+websocket-client {details['automationProvenance']['packages']['websocket-client']['version']}
+are verified separately against SHA-256-pinned official PyPI wheels. Their
+installed source files and packaged dependency DLL/PYD bytes are recorded under
+`bundledRuntime.automationProvenance`; this does not prove frozen bytecode is a
+reproducible build. `licenses/pillow/LICENSE` retains Pillow's complete bundled
+third-party notices, and `licenses/websocket-client/LICENSE` retains its terms.
+These dependency binaries are excluded from the PSF comparison only by their
+individually wheel-verified paths and hashes, never by a directory exemption.
 
 The bundled Windows runtime is supplied only for use on supported Microsoft
 Windows systems under the included Microsoft redistribution conditions. No runtime

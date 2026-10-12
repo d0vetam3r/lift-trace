@@ -4,15 +4,22 @@
 
 [Home](../README.en.md) · [User guide](USER_GUIDE.en.md) · [Development](DEVELOPMENT.en.md) · [Contributing](../CONTRIBUTING.en.md)
 
-This record describes the **0.1.0 prototype**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
+This record separates evidence for the **public 0.1.0 prototype and unreleased development source**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
 
-## Unreleased: automatic visibility foundations
+## Unreleased: INFINITAS automatic visibility connected to the app
 
-On 2026-10-13, the source on `codex/v020-extension-foundation` passed 68 Python and 73 JavaScript tests on Windows with Python 3.12.14 and Node 24.19.0. This development change is separate from the 0.1.0 evidence below; the version and public ZIPs are unchanged.
+On 2026-10-13, development source with local OBS connection, SCORE-region detection and target-selection UI was checked. The local development preview is `0.2.0-dev.1`; **public v0.1.0 and its ZIPs are unchanged**. These results are separate from public-release verification.
 
-Checks cover existing settings/display behavior after extracting INFINITAS calculations. Synthetic observations and mock OBS responses cover flicker, stale observations, start/stop, selected item identity and partial application failures. The source ZIP was built and extracted to check the replay tool and web asset serving. Initial restricted runs failed because of temporary-directory/loopback permissions; rerunning with an isolated temporary directory and permitted local communication passed.
+| Evidence | Observed result | Limits |
+| --- | --- | --- |
+| Local `0.2.0-dev.1` source and Windows ZIP | Python 120 and JavaScript 76 checks passed, and the build passed strict runtime-provenance verification. The extracted ZIP ran without external Python; `/api/automation` reported available and initially disconnected, and OBS-helper lifecycle checks passed. | Packaging and basic execution evidence for this build. Not a clean-PC, live-game, physical-device or actual OBS-rendering check. |
+| 24 still frames extracted from a recording | Recorded classification scores for the fixed 1080p SCORE region. Sampled play UI and result frames were distinguished; two entrance-animation samples temporarily classified as non-play. | Selected samples from one recording. This does not establish flicker suppression on continuous video or performance during actual gameplay. Detection includes pre-song play UI. |
+| Actual OBS 32.1.2 with recorded still frames | Confirmed play ON → result OFF → ON again, visibility retained on manual stop, fresh observation after restart, stopping without retry after connection failure, and result-screen OFF after explicit reconnect. Controlled two cameras, the overlay and the duplicated gauge while the original game and audio items stayed enabled. | Actual OBS requests and item states were checked. This was neither live gameplay nor continuous video playback, and did not assess audible output or physical camera image quality. |
+| Isolated headless browser with a mocked automation API | Confirmed connection, duplicate gauge selection by item ID, reference capture, start/stop, connection/acknowledgement button guards, password-field clearing and absence from browser storage. Korean/Japanese switching and text wrapping were checked; no JavaScript errors occurred. | UI requests and presentation were checked. This test itself did not exercise actual OBS or first-time-user usability. |
 
-No real screen recognition, OBS connection, controller, broadcast, BMS or human language review was performed for this change, and no new Windows EXE was built. `auto_visibility.py` is a source experiment, not yet connected to the running app. Successful replay is not evidence of live automatic control. The next implementation and verification scope is in [Development](DEVELOPMENT.en.md).
+Local evidence is retained in `live-obs-results.json`, `recorded-frame-results.json`, `artifacts/ui-smoke/result.json` and UI screenshots. Personal recordings, references and OBS settings are excluded from public distribution. Synthetic-observation/mock-OBS policy tests and actual connection checks are separate evidence.
+
+These results do not establish sustained performance with the game, OBS and controller together, normal song completion and transitions, other layouts/2P, or final-package execution on a clean PC. BMS and an external plugin API/loader are not implemented. See the [user guide](USER_GUIDE.en.md#optional-infinitas-automatic-visibility-unreleased) and [Development](DEVELOPMENT.en.md) for setup, recovery and implementation scope.
 
 ## Runtime provenance checked
 
