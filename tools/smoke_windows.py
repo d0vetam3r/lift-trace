@@ -110,6 +110,8 @@ def verify(archive_path: Path) -> None:
             automation = json.loads(request(standalone_port, "/api/automation"))
             assert automation["available"] is True, "Bundled OBS/image dependencies are missing"
             assert automation["connected"] is False and automation["running"] is False
+            assert automation["templateReady"] is True, "Bundled INFINITAS reference is missing or invalid"
+            assert automation["referenceSource"] == "builtin", "Fresh users should not need screen registration"
             assert "password" not in automation["config"]
             for route in ("/", "/overlay.html", "/app.js", "/automation.js", "/i18n.js", "/translations.js", "/setup.js"):
                 assert request(standalone_port, route), route

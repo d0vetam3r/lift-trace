@@ -16,6 +16,16 @@ CONFIG = {"sceneUuid": "scene", "captureItemId": 1, "captureSourceUuid": "game",
                       {"sceneUuid": "scene", "sceneItemId": 3, "sourceUuid": "camera"}]}
 
 
+def write_template(path, color="white"):
+    """A synthetic nonconstant PNG, unrelated to any game screenshot."""
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with Image.new("RGB", (90, 20), "black") as image:
+        image.paste(color, (0, 0, 45, 20))
+        image.save(path, format="PNG")
+
+
 class FakeConnection:
     def __init__(self, port, password, timeout=2):
         self.port, self.password = port, password
@@ -50,6 +60,7 @@ class FakeConnection:
 class FakeDetector:
     def __init__(self, connection, source_uuid, template_path, *, clock):
         self.connection, self.clock = connection, clock
+        self.template_path = template_path
         self.state = PlayState.PLAYING
         self.last_score, self.last_error = .999, None
         self.fail = False
@@ -89,7 +100,8 @@ class AutomationTests(unittest.TestCase):
             return value
 
         self.factories = {"connection_factory": connection_factory, "detector_factory": detector_factory,
-                          "template_capture": lambda connection, source, path: path.write_bytes(b"fake template")}
+                          "template_capture": lambda connection, source, path: write_template(path),
+                          "default_template_path": self.root / "bundled-reference.png"}
         self.automation = Automation(self.root, **self.factories)
 
     def tearDown(self):
@@ -126,6 +138,7 @@ class AutomationTests(unittest.TestCase):
             self.assertFalse(reloaded.status()["running"])
             self.assertFalse(reloaded.status()["connected"])
             self.assertTrue(reloaded.status()["templateReady"])
+            self.assertEqual(reloaded.status()["referenceSource"], "custom")
             self.assertEqual(len(self.connections), count)
         finally:
             reloaded.close()
@@ -358,6 +371,66 @@ class AutomationTests(unittest.TestCase):
         self.automation.configure({**CONFIG, "captureItemId": 2,
                                    "targets": [CONFIG["targets"][1]]})
         self.assertFalse(self.automation.status()["templateReady"])
+
+    def test_fresh_install_uses_builtin_without_registration_or_automatic_start(self):
+        write_template(self.automation.default_template_path, "red")
+        self.assertEqual(self.automation.status()["referenceSource"], "builtin")
+        self.assertTrue(self.automation.status()["templateReady"])
+        self.assertEqual(self.connections, [])
+        self.assertFalse(self.automation.status()["running"])
+        self.automation.connect({"port": 4455})
+        self.automation.configure(CONFIG)
+        with patch.object(self.automation, "template_capture", side_effect=AssertionError("No registration")):
+            self.automation.start()
+        self.assertEqual(self.detectors[-1].template_path, self.automation.default_template_path)
+        self.assertFalse(self.automation.template_path.exists())
+        self.automation.stop()
+
+    def test_valid_saved_custom_reference_takes_priority_over_builtin(self):
+        write_template(self.automation.default_template_path, "red")
+        self.ready()
+        self.assertEqual(self.automation.status()["referenceSource"], "custom")
+        self.automation.start()
+        self.assertEqual(self.detectors[-1].template_path, self.automation.template_path)
+        self.automation.stop()
+        reloaded = Automation(self.root, **self.factories)
+        try:
+            self.assertEqual(reloaded.status()["referenceSource"], "custom")
+            self.assertFalse(reloaded.status()["connected"])
+        finally:
+            reloaded.close()
+
+    def test_capture_change_removes_custom_and_falls_back_to_builtin(self):
+        write_template(self.automation.default_template_path)
+        self.ready()
+        self.automation.configure({**CONFIG, "captureItemId": 2,
+                                   "targets": [CONFIG["targets"][1]]})
+        self.assertFalse(self.automation.template_path.exists())
+        self.assertTrue(self.automation.status()["templateReady"])
+        self.assertEqual(self.automation.status()["referenceSource"], "builtin")
+
+    def test_invalid_custom_falls_back_to_valid_builtin_without_overwriting_it(self):
+        write_template(self.automation.default_template_path)
+        self.root.mkdir(exist_ok=True)
+        self.automation.template_path.write_bytes(b"invalid custom")
+        self.assertEqual(self.automation.status()["referenceSource"], "builtin")
+        self.assertEqual(self.automation.template_path.read_bytes(), b"invalid custom")
+
+    def test_missing_or_invalid_builtin_never_claims_readiness_or_bypasses_detector(self):
+        self.automation.connect({"port": 4455})
+        self.automation.configure(CONFIG)
+        for contents, expected in ((None, "template-required"), (b"invalid", "template-invalid")):
+            with self.subTest(contents=contents):
+                if contents is not None:
+                    self.automation.default_template_path.write_bytes(contents)
+                status = self.automation.status()
+                self.assertFalse(status["templateReady"])
+                self.assertIsNone(status["referenceSource"])
+                with self.assertRaises(AutomationError) as caught:
+                    self.automation.start()
+                self.assertEqual(caught.exception.code, expected)
+        self.assertEqual(self.detectors, [])
+        self.assertEqual(self.writes(self.connections[-1]), [])
 
     def test_idle_disconnect_is_visible_and_failed_recapture_does_not_keep_old_reference(self):
         connection = self.ready()

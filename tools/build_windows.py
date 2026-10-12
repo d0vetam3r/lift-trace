@@ -302,7 +302,9 @@ distribution. This evidence gap does not by itself establish a license violation
 
 Lift Trace application source is licensed under MIT; see LICENSE. The bundled
 runtime components retain their own licenses. The MIT license does not replace
-those terms. No OBS, game assets, controller firmware, or iPad remote is bundled.
+those terms. No OBS, controller firmware, or iPad remote is bundled.
+The app includes one 90 × 20 SCORE reference crop for the tested INFINITAS
+1920 × 1080 layout. It contains no full game screenshot or personal settings.
 
 ## Runtime provenance
 
@@ -387,7 +389,8 @@ def build_windows(root: Path = ROOT, output_dir: Path | None = None,
     dist = work / "dist"
     command = [sys.executable, "-I", "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed",
                "--name", "LiftTrace", "--distpath", str(dist), "--workpath", str(work / "freeze"),
-               "--specpath", str(work), "--add-data", f"{stage / 'web'};web", "--noupx", "desktop.py"]
+               "--specpath", str(work), "--add-data", f"{stage / 'web'};web",
+               "--add-data", f"{stage / 'assets'};assets", "--noupx", "desktop.py"]
     subprocess.run(command, cwd=stage, env=freeze_environment(), check=True)
     app = dist / "LiftTrace"
     # Public documentation only. Runtime sources and build tools remain in the

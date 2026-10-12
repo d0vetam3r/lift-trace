@@ -96,6 +96,11 @@ def _load_template(path: Path) -> bytes:
         return _template_vector(image)
 
 
+def validate_template(path: str | Path) -> None:
+    """Check a reference with the same bounded decoder used during detection."""
+    _load_template(Path(path))
+
+
 def _score(vector: bytes, reference: bytes, reference_norm: float) -> float:
     # TM_CCORR_NORMED at one fixed position, without mean subtraction or an
     # alpha mask. RGBA includes alpha=255 for opaque pixels, just as ASS does.

@@ -31,6 +31,7 @@ RUNTIME_FILES = (
     "automation.py",
     "obs_connection.py",
     "infinitas_detector.py",
+    "assets/infinitas-score-1080p.png",
     "desktop.py",
     "start.bat",
     "start.sh",

@@ -9,7 +9,7 @@ import unittest
 
 from server import Bridge, CLIENT_QUEUE_SIZE, LocalServer, MAX_BODY
 from automation import Automation
-from tests.test_automation import CONFIG, FakeConnection, FakeDetector
+from tests.test_automation import CONFIG, FakeConnection, FakeDetector, write_template
 
 
 class FakeNative:
@@ -121,7 +121,8 @@ class ServerTests(unittest.TestCase):
         self.bridge.automation.close()
         self.bridge.automation = Automation(
             self.root / "data", connection_factory=factory, detector_factory=FakeDetector,
-            template_capture=lambda connection, source, path: path.write_bytes(b"fake template"))
+            template_capture=lambda connection, source, path: write_template(path),
+            default_template_path=self.root / "bundled-reference.png")
         return connections
 
     def test_automation_routes_keep_credentials_out_of_settings_events_and_static_files(self):
@@ -157,6 +158,22 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("private-only", json.dumps(payload))
         self.assertFalse(payload["status"]["connected"])
         self.assertEqual(self.request("POST", "/api/automation/unknown", {})[0], 404)
+
+    def test_builtin_reference_starts_without_a_template_registration_route(self):
+        self.automation_fixture()
+        write_template(self.bridge.automation.default_template_path)
+        status = self.request("GET", "/api/automation")[1]
+        self.assertTrue(status["templateReady"])
+        self.assertEqual(status["referenceSource"], "builtin")
+        self.assertFalse(status["running"])
+        self.request("POST", "/api/automation/connect", {})
+        self.request("POST", "/api/automation/config", CONFIG)
+        code, result = self.request("POST", "/api/automation/start", {})
+        self.assertEqual(code, 200)
+        self.assertTrue(result["status"]["running"])
+        self.assertEqual(result["status"]["referenceSource"], "builtin")
+        self.assertFalse(self.bridge.automation.template_path.exists())
+        self.request("POST", "/api/automation/stop", {})
 
     def test_catalog_endpoint_is_read_only_and_restores_names_during_automation(self):
         connections = self.automation_fixture()

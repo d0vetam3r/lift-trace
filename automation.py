@@ -52,9 +52,12 @@ def _selection(value: dict) -> dict:
 
 class Automation:
     def __init__(self, data_dir: Path, *, connection_factory=None,
-                 detector_factory=None, template_capture=None, clock=time.monotonic):
+                 detector_factory=None, template_capture=None, clock=time.monotonic,
+                 default_template_path: Path | None = None):
         self.data_dir = Path(data_dir)
         self.template_path = self.data_dir / "automation-template.png"
+        self.default_template_path = (Path(default_template_path) if default_template_path is not None
+                                      else Path(__file__).resolve().parent / "assets" / "infinitas-score-1080p.png")
         self.clock = clock
         if connection_factory is None:
             try:
@@ -116,6 +119,7 @@ class Automation:
         os.replace(path, self.data_dir / "automation.json")
 
     def status(self):
+        reference, reference_source = self._reference()
         with self._state_lock:
             connected = self._connection is not None and self._connection.connected
             state = {**self._state, "connected": connected}
@@ -124,7 +128,21 @@ class Automation:
             config = {**self._config, "hasPassword": bool(self._password),
                       "targets": [dict(item) for item in self._config["targets"]]}
             return {"available": self.available, **state, "config": config,
-                    "templateReady": self.template_path.is_file() and not self._invalid_template}
+                    "templateReady": reference is not None, "referenceSource": reference_source}
+
+    def _reference(self):
+        """Prefer a valid local override; never write the bundled reference to data."""
+        if not self.available or self._invalid_template:
+            return None, None
+        from infinitas_detector import validate_template
+
+        for path, source in ((self.template_path, "custom"), (self.default_template_path, "builtin")):
+            try:
+                validate_template(path)
+            except (OSError, ValueError, ImportError):
+                continue
+            return path, source
+        return None, None
 
     def _idle_connection(self):
         if self._closed:
@@ -252,6 +270,7 @@ class Automation:
             try:
                 if changed_capture:
                     self.template_path.unlink(missing_ok=True)
+                    self._invalid_template = False
                 self._save()
             except OSError:
                 self._config = previous
@@ -287,8 +306,12 @@ class Automation:
         with self._operations:
             connection = self._idle_connection()
             config = _selection(self._config)
-            if not self.template_path.is_file() or self._invalid_template:
-                raise AutomationError("Capture a gameplay template before starting.", "template-required")
+            reference, _source = self._reference()
+            if reference is None:
+                if (self._invalid_template or self.template_path.exists()
+                        or self.default_template_path.exists()):
+                    raise AutomationError("The gameplay reference could not be loaded.", "template-invalid")
+                raise AutomationError("The gameplay reference is missing.", "template-required")
             try:
                 self._validate_items(connection, config)
             except AutomationError:
@@ -313,7 +336,7 @@ class Automation:
             active = ActiveConnection()
             try:
                 detector = self.detector_factory(active, config["captureSourceUuid"],
-                                                 self.template_path, clock=self.clock)
+                                                 reference, clock=self.clock)
                 targets = tuple(SceneItem(item["sceneUuid"], item["sceneItemId"], item["sourceUuid"])
                                 for item in config["targets"])
                 session = VisibilitySession(detector, ObsSceneItems(targets, active.request), clock=self.clock)
