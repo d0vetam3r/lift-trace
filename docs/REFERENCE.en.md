@@ -79,6 +79,8 @@ The settings page supplies separate X/Y copy buttons. Changing settings only rec
 
 ## Meaning of each input note
 
+The table describes the default display. The development version can change the appearance of key input using the settings below.
+
 | Input | Display |
 | --- | --- |
 | Short key press | Falling input note whose length reflects the press duration. |
@@ -90,6 +92,21 @@ The settings page supplies separate X/Y copy buttons. Changing settings only rec
 A held key can look like a long note, but the tool cannot know whether the chart contains one. It cannot identify individual chart notes inside continuous scratch motion, distinguish long scratches using chart information, or report game judgments. Stopping a scratch is inferred after a short timeout. Input notes describe controller input history, not chart data.
 
 Native input targets a polling interval near 4 ms. Drawing follows browser animation frames; the optional OBS script sets the Browser Source to 60 FPS. OBS output rate, scheduling, drivers and capture latency can limit the result. Synthetic demo smoothness does not establish actual capture synchronization.
+
+### Key note bodies and brief input display (unreleased)
+
+| Setting | Default · range | Behavior |
+| --- | --- | --- |
+| `inputBodyEnabled` | `true` · boolean | `false` shows only the heads for keys 1–7, with no bodies or tail caps. |
+| `shortInputEnabled` | `false` · boolean | Shortens brief inputs visually when bodies are enabled. |
+| `shortInputThresholdMs` | `200` · integer 1–2000 ms | Only released inputs with an actual duration below this value are shortened. |
+| `shortInputPercent` | `30` · integer 1–100% | Percentage of the original visual length to keep. 100% keeps the original length. |
+
+Heads-only mode applies to held and released keys of any duration. The single head created at press onset follows its original position, speed and display delay; holding a key does not generate repeated heads. Turning bodies off preserves the shortening settings. Scratch length and arrows, and the example game chart above the preview, stay unchanged.
+
+With bodies enabled, shortening applies only once release is visible after the configured display delay. Inputs at or above the threshold and keys still shown as held keep their original length. These are rendering changes only: input start/end times, input history and the engine's original segments remain unchanged. They do not detect chart long notes.
+
+The settings comparison shows an unsaved draft. **Apply and save** updates the live overlay and local settings; **Revert edits** restores the applied values. Older files missing the new settings use bodies on and shortening off, preserving the previous display.
 
 ## Controller support and guided setup
 

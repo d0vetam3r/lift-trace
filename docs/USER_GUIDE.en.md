@@ -67,6 +67,14 @@ Check the scratch display too.
 
 Alternating directions changes both the arrow and color. If they are reversed, repeat **Controller setup** and check that you followed each direction prompt. Continuous movement in one direction may appear as one connected input note. The app does not read the chart, so it cannot divide that movement into the game's individual scratch notes.
 
+### Optional: choose how input notes look (unreleased)
+
+In the current development version, **Input note appearance → Show key note bodies** switches between continuous trails and heads only. With bodies on, a key note extends for the press duration. With bodies off, keys 1–7 show only the head created when pressed; holding a key does not create repeated heads. Scratch display and actual input records stay unchanged.
+
+With bodies on, **Shorten brief inputs** can shorten released inputs below the **Time threshold**. **Length to keep** is the percentage that remains: 200 ms and 70% displays an input shorter than 200 ms at 70% of its original length, rather than removing 70%. Inputs at or above the threshold and keys still held are not shortened.
+
+Edits first affect only the comparison samples. Click **Apply and save** when ready to update the live overlay, or **Revert edits** to return to the applied settings. Turning bodies off keeps the threshold and percentage for the next time you turn them on.
+
 ## 4. Paste the address and size into OBS
 
 First, in OBS, check **Settings → Video → Base (Canvas) Resolution** is **1920 × 1080**. The size and position below assume the game fills that whole picture.

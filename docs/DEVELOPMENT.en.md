@@ -42,7 +42,7 @@ Use a writable `--data-dir` for isolated checks. The manager supports `--languag
 
 ```sh
 python -m unittest discover -s tests -p "test_*.py" -v
-node --test tests/engine.test.mjs tests/client.test.mjs tests/render.test.mjs tests/i18n.test.mjs tests/setup.test.mjs
+npm test
 ```
 
 Some Python tests open temporary loopback listeners. A restricted environment must permit them. Tests use synthetic input, so they require no controller and cannot verify physical compatibility or game-capture synchronization.
@@ -84,6 +84,7 @@ The settings page is a client of the server, not the owner of native input polli
 - Apply the 1080p width/ratio preset only on explicit user action. Preserve game values, side, input mapping and manual height; reset only position offsets along with lane sizes.
 - Scene placement changes only on explicit OBS apply or user transform edits. Preserve existing script manual X/Y when introducing the app-position option.
 - Preserve actual input semantics: a long hold does not identify a chart long note.
+- Apply `inputBodyEnabled` and brief-input shortening only during rendering. Preserve input history, start/end times, engine segments, scratches and the example game chart. Keep shortening values when bodies are disabled, and keep settings drafts separate from the live overlay until Apply and save.
 - Handle button release, axis wraparound and device loss without stuck input states.
 - Keep manual mapping configurable; guided setup must not assume one controller's button IDs or scratch-axis sign. Normalize scratch direction to `+1` clockwise and `-1` counterclockwise with `scratchInvert`.
 - Check clockwise and counterclockwise movement separately on the same wrapping axis. Retrying direction setup keeps the seven keys but clears both direction samples. Prompts describe directions as viewed from above. The physical meaning depends on following those prompts.

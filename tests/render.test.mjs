@@ -143,3 +143,206 @@ test('complete circular markers fit inside the narrowest supported scratch lane'
     }
   }
 });
+
+function trailFixture(raw = {}) {
+  const settings = normalizeSettings({ greenNumber: 433.8, heightMode: 'manual', manualOverlayHeight: 1000,
+    background: 'transparent', showGuides: false, shortInputEnabled: true, ...raw });
+  const engine = new TrailEngine(settings);
+  const ctx = fakeCanvas().getContext('2d');
+  return { settings, engine, ctx };
+}
+
+test('head-only mode draws exactly one head for every keyboard lane, held and released at any duration', () => {
+  for (let lane = 1; lane <= 7; lane++) {
+    for (const duration of [0, 80, 200, 500]) {
+      for (const released of [false, true]) {
+        const { settings, engine, ctx } = trailFixture({ inputBodyEnabled: false });
+        engine.press(lane, 100);
+        if (released) engine.release(lane, 100 + duration);
+        const before = engine.snapshot(120 + duration);
+        const rawEvent = engine.events[0];
+        drawOverlay(ctx, engine, settings, 120 + duration);
+        assert.equal(ctx.rectangles.length, 1, `lane ${lane}, duration ${duration}, released ${released}`);
+        const [head] = ctx.rectangles;
+        assert.equal(head.logicalHeight, settings.noteHeight);
+        assert.equal(head.y, duration + 20 - settings.noteHeight / 2);
+        assert.equal(head.color, NOTE_COLORS[lane]);
+        assert.deepEqual(engine.snapshot(120 + duration), before);
+        assert.equal(engine.events[0], rawEvent);
+        assert.equal(engine.active.has(lane), !released);
+      }
+    }
+  }
+});
+
+test('head-only rendering respects press delay and keeps the head moving smoothly through release', () => {
+  const { settings, engine, ctx } = trailFixture({ inputBodyEnabled: false, delayMs: 100 });
+  engine.press(1, 100); engine.release(1, 160);
+  for (const [now, expectedY] of [[199, null], [200, -3], [250, 47], [260, 57], [280, 77]]) {
+    ctx.clearRect();
+    drawOverlay(ctx, engine, settings, now);
+    if (expectedY === null) assert.deepEqual(ctx.rectangles, []);
+    else {
+      assert.equal(ctx.rectangles.length, 1);
+      assert.equal(ctx.rectangles[0].y, expectedY);
+      assert.equal(ctx.rectangles[0].logicalHeight, settings.noteHeight);
+    }
+  }
+});
+
+test('re-enabling bodies restores the selected short-input ratio without changing recorded input', () => {
+  const { settings, engine, ctx } = trailFixture({ shortInputThresholdMs: 300, shortInputPercent: 50 });
+  engine.press(1, 100); engine.release(1, 200);
+  const render = inputBodyEnabled => {
+    ctx.clearRect();
+    drawOverlay(ctx, engine, { ...settings, inputBodyEnabled }, 220);
+    return structuredClone(ctx.rectangles);
+  };
+  const original = render(true);
+  assert.equal(original[0].logicalHeight, 50);
+  assert.deepEqual(render(false), [original[1]]);
+  assert.deepEqual(render(true), original);
+});
+
+test('head-only setting leaves scratch ribbons, tail caps, and arrows unchanged on either side', () => {
+  for (const side of ['1P', '2P']) {
+    for (const direction of [-1, 1]) {
+      for (const released of [false, true]) {
+        const render = inputBodyEnabled => {
+          const { settings, engine, ctx } = trailFixture({ side, inputBodyEnabled });
+          engine.press(0, 100, direction);
+          if (released) engine.release(0, 180);
+          drawOverlay(ctx, engine, settings, 200);
+          return { rectangles: ctx.rectangles, arcs: ctx.arcs, strokes: ctx.strokes };
+        };
+        const original = render(true);
+        assert.equal(original.rectangles.length, 3);
+        assert.equal(original.arcs.length, 1);
+        assert.deepEqual(render(false), original);
+      }
+    }
+  }
+});
+
+test('preview game chart retains its long-note body while head-only mode affects input marks', () => {
+  const { settings, engine } = trailFixture({ inputBodyEnabled: false });
+  engine.press(1, 100); engine.release(1, 200);
+  const canvas = fakeCanvas();
+  drawPreview(canvas, { settings, engine }, 220, [{ lane: 1, start: 200, end: 300, long: true }]);
+  const notes = canvas.getContext('2d').rectangles.filter(rect => rect.color === NOTE_COLORS[1]);
+  assert.deepEqual(notes.map(rect => rect.logicalHeight), [100, settings.noteHeight, 2, settings.noteHeight]);
+});
+
+test('finished short keyboard trails shrink only the body, preserving press position and raw history', () => {
+  for (let lane = 1; lane <= 7; lane++) {
+    for (const percent of [1, 30, 75]) {
+      const { settings, engine, ctx } = trailFixture({ shortInputPercent: percent });
+      engine.press(lane, 100); engine.release(lane, 200);
+      const rawEvent = engine.events[0];
+      const before = engine.snapshot(220);
+      drawOverlay(ctx, engine, settings, 220);
+      const [body, head, tail] = ctx.rectangles;
+      assert.equal(body.logicalHeight, percent);
+      assert.equal(body.y, 120 - percent);
+      assert.equal(head.y, 120 - settings.noteHeight / 2);
+      assert.equal(head.logicalHeight, settings.noteHeight);
+      assert.equal(tail.y, body.y);
+      assert.equal(engine.events[0], rawEvent);
+      assert.deepEqual(rawEvent, { lane, start: 100, end: 200, direction: 0 });
+      assert.deepEqual(engine.snapshot(220), before);
+      assert.equal(engine.active.size, 0);
+    }
+  }
+});
+
+test('compression uses a strict configurable threshold and keeps equal or longer inputs unchanged', () => {
+  for (const threshold of [50, 200, 1000]) {
+    for (const duration of [threshold - 1, threshold, threshold + 1]) {
+      const { settings, engine, ctx } = trailFixture({ shortInputThresholdMs: threshold });
+      engine.press(1, 100); engine.release(1, 100 + duration);
+      drawOverlay(ctx, engine, settings, 120 + duration);
+      const expected = duration < threshold ? duration * .3 : duration;
+      assert.ok(Math.abs(ctx.rectangles[0].logicalHeight - expected) < 1e-9,
+        `threshold ${threshold}, duration ${duration}`);
+    }
+  }
+});
+
+test('held keyboard inputs stay on the judgment line before and after the threshold', () => {
+  for (const elapsed of [50, 200, 500]) {
+    const { settings, engine, ctx } = trailFixture();
+    engine.press(1, 100);
+    drawOverlay(ctx, engine, settings, 100 + elapsed);
+    const [body, head] = ctx.rectangles;
+    assert.equal(body.y, 0);
+    assert.equal(body.logicalHeight, elapsed);
+    assert.equal(head.y, elapsed - settings.noteHeight / 2);
+    assert.equal(engine.active.get(1).end, null);
+  }
+});
+
+test('a known future release is compressed only when the display delay reaches that release', () => {
+  const { settings, engine, ctx } = trailFixture({ delayMs: 100 });
+  engine.press(1, 100); engine.release(1, 160);
+  drawOverlay(ctx, engine, settings, 199);
+  assert.deepEqual(ctx.rectangles, [], 'the delayed press is not visible early');
+  drawOverlay(ctx, engine, settings, 250);
+  assert.equal(ctx.rectangles[0].logicalHeight, 50);
+  assert.equal(ctx.rectangles[0].y, 0);
+  assert.equal(engine.snapshot(250)[0].active, true);
+  ctx.clearRect();
+  drawOverlay(ctx, engine, settings, 260);
+  assert.equal(ctx.rectangles[0].logicalHeight, 18);
+  assert.equal(ctx.rectangles[0].y, 42);
+  assert.equal(ctx.rectangles[1].y, 60 - settings.noteHeight / 2);
+  assert.equal(engine.snapshot(260)[0].active, false);
+});
+
+test('disabled compression and a 100 percent setting preserve the complete original rendering', () => {
+  const render = raw => {
+    const { settings, engine, ctx } = trailFixture(raw);
+    engine.press(1, 100); engine.release(1, 180);
+    drawOverlay(ctx, engine, settings, 200);
+    return ctx.rectangles;
+  };
+  const original = render({ shortInputEnabled: false });
+  assert.equal(original[0].logicalHeight, 80);
+  assert.deepEqual(render({ shortInputEnabled: false, shortInputPercent: 1 }), original);
+  assert.deepEqual(render({ shortInputPercent: 100 }), original);
+});
+
+test('short scratch trails retain their complete rendering and direction markers with compression enabled', () => {
+  for (const side of ['1P', '2P']) {
+    for (const direction of [-1, 1]) {
+      const render = shortInputEnabled => {
+        const { settings, engine, ctx } = trailFixture({ shortInputEnabled, side });
+        engine.press(0, 100, direction); engine.release(0, 180);
+        drawOverlay(ctx, engine, settings, 200);
+        return { rectangles: ctx.rectangles, arcs: ctx.arcs, strokes: ctx.strokes };
+      };
+      const original = render(false);
+      assert.equal(original.rectangles[0].logicalHeight, 80);
+      assert.equal(original.arcs.length, 1);
+      assert.deepEqual(render(true), original);
+    }
+  }
+});
+
+test('zero-duration keyboard taps keep their visible head without inventing trail duration', () => {
+  const { settings, engine, ctx } = trailFixture();
+  engine.press(1, 100); engine.release(1, 100);
+  drawOverlay(ctx, engine, settings, 120);
+  assert.equal(ctx.rectangles[0].logicalHeight, 0);
+  assert.equal(ctx.rectangles[0].y, 20);
+  assert.equal(ctx.rectangles[1].logicalHeight, settings.noteHeight);
+  assert.equal(ctx.rectangles[1].y, 20 - settings.noteHeight / 2);
+});
+
+test('preview game notes stay unchanged while the input overlay uses compressed trails', () => {
+  const { settings, engine } = trailFixture();
+  engine.press(1, 100); engine.release(1, 200);
+  const canvas = fakeCanvas();
+  drawPreview(canvas, { settings, engine }, 220, [{ lane: 1, start: 200, end: 300, long: true }]);
+  const notes = canvas.getContext('2d').rectangles.filter(rect => rect.color === NOTE_COLORS[1]);
+  assert.deepEqual(notes.map(rect => rect.logicalHeight), [100, settings.noteHeight, 2, 30, settings.noteHeight, 2]);
+});

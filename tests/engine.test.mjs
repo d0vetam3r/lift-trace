@@ -150,6 +150,87 @@ test('black-key width defaults preserve old layouts and imports stay bounded wit
   assert.equal(getSpeed({ blackKeyRatio: .25 }), getSpeed({ blackKeyRatio: 2 }));
 });
 
+test('input bodies remain enabled for existing settings and only accept boolean choices', () => {
+  assert.equal(DEFAULTS.inputBodyEnabled, true);
+  assert.equal(normalizeSettings({}).inputBodyEnabled, true);
+  for (const invalid of ['true', 'false', 1, 0, null, {}, [], undefined]) {
+    assert.equal(normalizeSettings({ inputBodyEnabled: invalid }).inputBodyEnabled, true);
+  }
+  for (const inputBodyEnabled of [false, true]) {
+    const settings = normalizeSettings({ inputBodyEnabled });
+    assert.equal(settings.inputBodyEnabled, inputBodyEnabled);
+    assert.deepEqual(normalizeSettings(JSON.parse(JSON.stringify(settings))), settings);
+  }
+});
+
+test('input body visibility never alters input history, delayed geometry, or held input lifecycle', () => {
+  const engine = new TrailEngine({ ...SPEED_1000, delayMs: 100 });
+  engine.press(1, 100); engine.release(1, 160);
+  engine.press(2, 120);
+  engine.press(0, 140, -1);
+  const events = structuredClone(engine.events);
+  const snapshot = engine.snapshot(280);
+  const activeKey = engine.active.get(2), activeScratch = engine.active.get(0);
+  for (const inputBodyEnabled of [false, true, false]) {
+    engine.configure({ inputBodyEnabled });
+    assert.equal(getSpeed(engine.settings), 1000);
+    assert.deepEqual(engine.events, events);
+    assert.deepEqual(engine.snapshot(280), snapshot);
+    assert.equal(engine.active.get(2), activeKey);
+    assert.equal(engine.active.get(0), activeScratch);
+  }
+  // An invisible held head must not retire its event or create repeated heads.
+  assert.deepEqual(engine.snapshot(10000).map(event => event.lane), [2, 0]);
+  engine.press(2, 10000);
+  assert.equal(engine.events.length, 2);
+  engine.release(2, 10020);
+  assert.equal(activeKey.end, 10020);
+  assert.equal(engine.active.has(2), false);
+  assert.equal(engine.active.get(0), activeScratch);
+});
+
+test('short-input settings preserve old defaults and normalize imported controls', () => {
+  const defaults = normalizeSettings({});
+  assert.equal(defaults.shortInputEnabled, false);
+  assert.equal(defaults.shortInputThresholdMs, 200);
+  assert.equal(defaults.shortInputPercent, 30);
+  for (const invalid of ['true', 'false', 1, 0, null, {}, [], undefined]) {
+    assert.equal(normalizeSettings({ shortInputEnabled: invalid }).shortInputEnabled, false);
+  }
+  const settings = normalizeSettings({ shortInputEnabled: true,
+    shortInputThresholdMs: '150.6', shortInputPercent: '42.3' });
+  assert.equal(settings.shortInputEnabled, true);
+  assert.equal(settings.shortInputThresholdMs, 151);
+  assert.equal(settings.shortInputPercent, 42);
+  assert.deepEqual(normalizeSettings(JSON.parse(JSON.stringify(settings))), settings);
+});
+
+test('short-input settings reject invalid numbers and bound both integer controls', () => {
+  for (const value of [null, '', false, NaN, Infinity, {}, [], 'bad']) {
+    const settings = normalizeSettings({ shortInputThresholdMs: value, shortInputPercent: value });
+    assert.equal(settings.shortInputThresholdMs, 200);
+    assert.equal(settings.shortInputPercent, 30);
+  }
+  for (const [value, threshold, percent] of [[-5, 1, 1], [9999, 2000, 100], [.6, 1, 1]]) {
+    const settings = normalizeSettings({ shortInputThresholdMs: value, shortInputPercent: value });
+    assert.equal(settings.shortInputThresholdMs, threshold);
+    assert.equal(settings.shortInputPercent, percent);
+  }
+});
+
+test('short-input display settings never change raw input events, snapshots, or speed', () => {
+  const engine = new TrailEngine(SPEED_1000);
+  engine.press(1, 100); engine.release(1, 160);
+  engine.press(2, 120);
+  const events = structuredClone(engine.events);
+  const before = engine.snapshot(180);
+  engine.configure({ shortInputEnabled: true, shortInputThresholdMs: 1000, shortInputPercent: 1 });
+  assert.equal(getSpeed(engine.settings), 1000);
+  assert.deepEqual(engine.events, events);
+  assert.deepEqual(engine.snapshot(180), before);
+  assert.equal(engine.active.get(2), engine.events[1]);
+});
+
 test('head falls immediately, held tail remains on the judgment line', () => {
   const engine = new TrailEngine({ ...SPEED_1000, manualOverlayHeight: 500 });
   engine.press(3, 100);

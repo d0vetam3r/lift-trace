@@ -107,7 +107,8 @@ def verify(archive_path: Path) -> None:
         try:
             assert json.loads(request(standalone_port, "/api/settings")) == {}
             assert json.loads(request(standalone_port, "/api/status"))["selectedDevice"] is None
-            for route in ("/", "/overlay.html", "/app.js", "/i18n.js", "/translations.js", "/setup.js"):
+            for route in ("/", "/overlay.html", "/app.js", "/i18n.js", "/translations.js", "/setup.js",
+                          "/settings-writer.js", "/short-input-controls.js", "/short-input-preview.js"):
                 assert request(standalone_port, route), route
         finally:
             stop(standalone)

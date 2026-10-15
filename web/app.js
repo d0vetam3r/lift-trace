@@ -3,6 +3,8 @@ import { getSpeed, getGameGeometry, getObsPlacement, FULLSCREEN_LAYOUT } from '.
 import { drawPreview, laneGeometry } from './render.js';
 import { t, getLocale, setLocale, applyTranslations } from './i18n.js';
 import { ControllerSetup } from './setup.js';
+import { ShortInputControls } from './short-input-controls.js';
+import { SettingsWriter } from './settings-writer.js';
 
 const $ = id => document.getElementById(id);
 const client = new InputClient();
@@ -13,6 +15,17 @@ let running = false, demoState = {startTime:0,period:7200,notes:[]}, gameNotes =
 let configIdentity = '';
 let connectionState = 'connecting', settingsSaved = false, rawInput = null, toastMessage = null;
 let controllerSetup = null, setupRenderKey = '', setupSaving = false;
+let applyingSettingsLocally = false;
+const settingsWriter = new SettingsWriter(settings => api('/api/settings', settings), {
+  read: async signal => {
+    const response = await fetch('/api/settings', {signal});
+    if (!response.ok) throw new Error(`Settings refresh failed (${response.status})`);
+    return cleanConfig(await response.json());
+  },
+  onRefresh: settings => configureLocally(settings),
+});
+const shortInputControls = new ShortInputControls($('short-input-settings'), patch =>
+  persist({...settingsWriter.current(client.settings), ...patch}));
 
 function toast(key, values) {
   toastMessage = {key, values}; $('toast').textContent = t(key, values); $('toast').hidden = false;
@@ -66,6 +79,7 @@ function syncSettings(s) {
     if (name === 'showGuides' || name === 'scratchInvert') $(name).checked = s[name];
     else $(name).value = name === 'buttonMap' ? s[name].join(',') : s[name];
   }
+  shortInputControls.sync(s);
   $('input-mode').value = s.inputMode;
   $('native-controls').hidden = s.inputMode !== 'native';
   $('preview-mode').textContent = t(s.inputMode === 'native' ? 'previewNative' : 'previewDemo');
@@ -93,13 +107,24 @@ function syncSettings(s) {
   const scratch = $('scratch-tests');
   if (s.side === '1P') keybed.prepend(scratch); else keybed.append(scratch);
 }
+function configureLocally(settings) {
+  applyingSettingsLocally = true;
+  try { client.configure(settings); }
+  finally { applyingSettingsLocally = false; }
+}
 async function persist(s) {
-  const clean = cleanConfig(s); client.configure(clean);
-  await api('/api/settings', clean);
+  const previous = client.settings, clean = cleanConfig(s);
+  const saved = settingsWriter.save(clean);
+  configureLocally(clean);
+  try { await saved; }
+  catch (error) { configureLocally(settingsWriter.current(previous)); throw error; }
+  const effective = settingsWriter.current(clean);
+  configureLocally(effective);
   settingsSaved = true; $('save-status').textContent = t('saved');
+  return effective;
 }
 function updateSettings() {
-  const s = { ...client.settings, inputMode: $('input-mode').value };
+  const s = { ...settingsWriter.current(client.settings), inputMode: $('input-mode').value };
   for (const name of fields) {
     if (name === 'showGuides' || name === 'scratchInvert') s[name] = $(name).checked;
     else if (name === 'side' || name === 'background' || name === 'heightMode') s[name] = $(name).value;
@@ -123,7 +148,7 @@ function updateSettings() {
 for (const name of [...fields, 'input-mode']) $(name).addEventListener('change', updateSettings);
 $('fullscreen-preset').addEventListener('click', async () => {
   try {
-    await persist({...client.settings, width:FULLSCREEN_LAYOUT.laneWidth,
+    await persist({...settingsWriter.current(client.settings), width:FULLSCREEN_LAYOUT.laneWidth,
       scratchWidth:FULLSCREEN_LAYOUT.scratchWidth, blackKeyRatio:FULLSCREEN_LAYOUT.blackKeyRatio,
       obsOffsetX:0, obsOffsetY:0});
     toast('fullscreenPresetApplied');
@@ -187,7 +212,15 @@ client.addEventListener('raw', event => {
   rawInput = event.detail; updateRawInput();
   if (controllerSetup && $('setup-dialog').open) { controllerSetup.feed(event.detail); renderControllerSetup(); }
 });
-client.addEventListener('settings', event => syncSettings(event.detail));
+client.addEventListener('settings', event => {
+  if (!applyingSettingsLocally) {
+    const effective = settingsWriter.receive(event.detail);
+    if (JSON.stringify(effective) !== JSON.stringify(event.detail)) {
+      configureLocally(effective); return;
+    }
+  }
+  syncSettings(event.detail);
+});
 client.addEventListener('demo', event => {
   demoState = event.detail; running = Boolean(demoState.running); gameNotes = [];
   updateDemoLabels();
@@ -196,6 +229,7 @@ client.addEventListener('connection', event => {
   connectionState = event.detail ? 'connected' : 'disconnected';
   $('connection').textContent = t(connectionState);
   $('connection').className = 'connection ' + (event.detail ? 'ok' : 'error');
+  if (event.detail) void settingsWriter.refresh();
   if (!event.detail) {
     running = false; gameNotes = []; updateDemoLabels();
     if (controllerSetup && $('setup-dialog').open) { controllerSetup.detach(); renderControllerSetup(); }
@@ -257,7 +291,7 @@ $('setup-dialog').addEventListener('close', () => { if (controllerSetup?.phase !
 $('setup-apply').addEventListener('click', async () => {
   const draft = controllerSetup, mapping = draft?.apply(); if (!mapping) return;
   setupSaving = true; renderControllerSetup();
-  try { await persist({...client.settings, ...mapping, inputMode:'native'}); $('setup-dialog').close(); toast('setupApplied'); }
+  try { await persist({...settingsWriter.current(client.settings), ...mapping, inputMode:'native'}); $('setup-dialog').close(); toast('setupApplied'); }
   catch (error) { if (draft.phase === 'applied') draft.phase = 'review'; report(error); }
   finally { setupSaving = false; renderControllerSetup(); }
 });

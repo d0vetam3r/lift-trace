@@ -4,7 +4,23 @@
 
 [Home](../README.en.md) · [User guide](USER_GUIDE.en.md) · [Development](DEVELOPMENT.en.md) · [Contributing](../CONTRIBUTING.en.md)
 
-This record describes the **0.1.0 prototype**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
+This record separates dated validation of the **unreleased input note appearance features** from the existing **0.1.0 prototype** evidence. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
+
+## 2026-10-15: input note appearance (unreleased)
+
+The source containing the key note body toggle and brief-input length controls passed the following checks after fixes for saved-setting update races.
+
+| Check | Result | Scope and limits |
+| --- | --- | --- |
+| Full Python suite | 57 passed on Windows with Python 3.12.14 | Existing server, settings, packaging and other tests. Not a physical-device input test. |
+| Full JavaScript suite | 121 passed with Node.js 24.19.0 | Bodies apply only to keys 1–7 and default to on; original input history and scratches stay unchanged. Covers brief-input rendering, apply/cancel, lost settings events (SSE), reconnection and late external updates. |
+| Source distribution checks | Source ZIP build and unpack checks passed | Checks the source distribution, not a newly built or tested Windows executable. |
+
+An earlier browser check that day used a separate test data folder to verify body toggling, saving and reloading, including retention of the existing 300 ms threshold and 50% length setting.
+
+After the latest saved-setting race fixes, browser automation exercised two tabs against an isolated source server. Applying bodies on and 70% in tab A updated tab B to 70%. While A held an unsaved 30% draft, applying 85% in B preserved A's 30% draft. Revert edits in A restored the latest saved 85%, and reloading A retained 85%. The browser console contained no errors or warnings. This verifies the ordinary two-tab interaction flow, not browser tests with artificially injected HTTP or SSE races.
+
+This update provides no new EXE, live-game, physical-controller or human language-review result. The runtime-provenance and 0.1.0 package records below remain evidence for the earlier build; they do not validate a Windows package containing the new features.
 
 ## Runtime provenance checked
 

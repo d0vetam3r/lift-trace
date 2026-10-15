@@ -51,18 +51,22 @@ export function resizeCanvas(canvas, width, height) {
   return ctx;
 }
 
-function note(ctx, lane, head, tail, settings, direction = 0, alpha = 1) {
+function note(ctx, lane, head, tail, settings, direction = 0, alpha = 1, bodyEnabled = true) {
   const geometry = laneGeometry(settings)[lane];
   const x = geometry.x + 3, width = Math.max(1, geometry.width - 6);
   const color = lane === 0 && direction
     ? SCRATCH_COLORS[direction > 0 ? 'clockwise' : 'counterclockwise'] : NOTE_COLORS[lane];
   ctx.save(); ctx.fillStyle = color;
-  ctx.globalAlpha = settings.trailOpacity * alpha;
-  ctx.fillRect(x, tail, width, Math.max(0, head - tail));
+  if (bodyEnabled) {
+    ctx.globalAlpha = settings.trailOpacity * alpha;
+    ctx.fillRect(x, tail, width, Math.max(0, head - tail));
+  }
   ctx.globalAlpha = alpha;
   ctx.fillRect(x, head - settings.noteHeight / 2, width, settings.noteHeight);
-  ctx.globalAlpha = .75 * alpha;
-  ctx.fillRect(x, tail, width, Math.min(2, settings.noteHeight));
+  if (bodyEnabled) {
+    ctx.globalAlpha = .75 * alpha;
+    ctx.fillRect(x, tail, width, Math.min(2, settings.noteHeight));
+  }
   if (lane === 0 && direction) {
     // Short inputs still have a direction marker. Long inputs keep it near the
     // trailing end so it remains visible while the turntable keeps rotating.
@@ -85,7 +89,20 @@ export function drawOverlay(ctx, engine, settings, now, offset = 0) {
     ctx.strokeStyle = 'rgba(137,154,176,.22)'; ctx.lineWidth = 1;
     for (const g of laneGeometry(settings)) { ctx.beginPath(); ctx.moveTo(g.x + .5, 0); ctx.lineTo(g.x + .5, settings.overlayHeight); ctx.stroke(); }
   }
-  for (const event of engine.snapshot(now)) note(ctx, event.lane, event.headY, event.tailY, settings, event.direction);
+  for (const event of engine.snapshot(now)) {
+    // This switch affects only keyboard input marks, never scratch ribbons or
+    // the example game chart. The engine still retains the full input interval.
+    const bodyEnabled = settings.inputBodyEnabled !== false || event.lane === 0;
+    let tailY = event.tailY;
+    // Only shorten a finished keyboard trail. Keep its press position and raw
+    // timestamps, and wait for the displayed release when a delay is configured.
+    if (bodyEnabled && settings.shortInputEnabled && settings.shortInputPercent < 100
+      && event.lane >= 1 && event.lane <= 7 && !event.active && event.end !== null
+      && event.end - event.start < settings.shortInputThresholdMs) {
+      tailY = event.headY - (event.headY - event.tailY) * settings.shortInputPercent / 100;
+    }
+    note(ctx, event.lane, event.headY, tailY, settings, event.direction, 1, bodyEnabled);
+  }
   ctx.restore();
 }
 

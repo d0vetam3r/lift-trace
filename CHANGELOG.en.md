@@ -6,6 +6,9 @@ Changes to the public overlay distribution are recorded here. Internal developme
 
 ## Unreleased
 
+- Add a key note body toggle under Input note appearance, allowing keys 1–7 to show only their falling heads. Bodies remain enabled by default. Actual input records, scratches and the example game chart stay unchanged.
+- Add visual shortening for released brief key inputs, with a time threshold and percentage to keep. Comparison samples, a slider and presets support tuning before Apply and save or Revert edits. Turning bodies off preserves these values.
+
 - Reorganize the English, Korean and Japanese READMEs around an animated demonstration, Windows setup, features and task-based guide links.
 - Add an original synthetic demo rendered with the application's drawing code, with optional developer instructions for regenerating it.
 - Make Korean the default documentation language.

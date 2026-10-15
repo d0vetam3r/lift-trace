@@ -87,7 +87,7 @@ test('both HTML entry points and literal runtime messages reference existing dic
     // A translated node's contents are replaced: never mark a label/select with child controls.
     assert.doesNotMatch(html, /<(?:label|select)[^>]*\sdata-i18n="/);
   }
-  for (const filename of ['app.js', 'setup.js']) {
+  for (const filename of ['app.js', 'setup.js', 'short-input-controls.js']) {
     const app = await readFile(new URL(`../web/${filename}`, import.meta.url), 'utf8');
     for (const match of app.matchAll(/\b(?:t|toast)\('([^']+)'/g)) {
       assert.ok(Object.hasOwn(translations.en, match[1]), `${filename}: ${match[1]}`);
@@ -121,5 +121,9 @@ test('settings page has unique IDs and every literal app control exists', async 
   assert.equal(new Set(ids).size, ids.length, 'HTML IDs must be unique');
   for (const match of app.matchAll(/\$\('([^']+)'\)/g)) {
     assert.ok(ids.includes(match[1]), `Missing app control: ${match[1]}`);
+  }
+  const fields = app.match(/const fields = \[([^\]]+)\]/)[1];
+  for (const match of fields.matchAll(/'([^']+)'/g)) {
+    assert.ok(ids.includes(match[1]), `Missing synchronized settings control: ${match[1]}`);
   }
 });
