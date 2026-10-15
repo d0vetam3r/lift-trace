@@ -63,6 +63,85 @@ function Find-Python {
     throw 'Python 3.10+ was not found. Set the Python executable in the OBS script properties.'
 }
 
+function Test-ObsOwnerAlive {
+    $owner = $null
+    try {
+        $owner = Get-Process -Id $ObsProcessId -ErrorAction Stop
+        # Check the original start time as well as PID; a new OBS process must
+        # not inherit an old helper's pending connection or start request.
+        return (-not $owner.HasExited -and $owner.StartTime -eq $obsStart)
+    } catch { return $false }
+    finally { if ($null -ne $owner) { $owner.Dispose() } }
+}
+
+function Start-SavedAutomation {
+    # This installation can opt in without making Core or automation mandatory.
+    # Only a backend created by this helper may be armed; never touch a reused one.
+    if ($null -eq $ownedServer) { return }
+    $preference = Join-Path $DataDir 'obs-automation-autostart.json'
+    if (-not (Test-Path -LiteralPath $preference -PathType Leaf)) { return }
+    try {
+        if ((Get-Item -LiteralPath $preference).Length -gt 4096) { return }
+        $option = Get-Content -LiteralPath $preference -Raw | ConvertFrom-Json
+        if ($option.enabled -isnot [bool] -or -not $option.enabled) { return }
+        $state = Invoke-RestMethod -Uri "$baseUrl/api/automation" -TimeoutSec 2
+        if ($state.running -or $state.connected -or $state.error -or
+            -not $state.available -or -not $state.templateReady -or
+            -not $state.config.sceneUuid -or -not $state.config.captureSourceUuid -or
+            -not $state.config.targets) { return }
+
+        $connected = $false
+        $connectBudget = [Diagnostics.Stopwatch]::StartNew()
+        for ($attempt = 0; $attempt -lt 3; $attempt++) {
+            if ($connectBudget.Elapsed.TotalSeconds -ge 7) { throw 'OBS connection startup budget expired.' }
+            $ownedServer.Refresh()
+            if ($ownedServer.HasExited -or -not (Test-ObsOwnerAlive)) { return }
+            try {
+                # OBS connection and the subsequent scene lookup have separate
+                # deadlines. Allow both responses within a bounded startup window.
+                $result = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/automation/connect" `
+                    -ContentType 'application/json' -Body '{}' -TimeoutSec 6
+                $connected = $result.status.connected -and -not $result.status.error
+                break
+            } catch {
+                if (-not (Test-ObsOwnerAlive)) { return }
+                # Retry only an acknowledged connection failure while OBS starts.
+                # A timeout or unknown outcome is not permission to repeat a POST.
+                $retry = $false
+                try {
+                    $response = $_.Exception.Response
+                    $failureText = $_.ErrorDetails.Message
+                    if ($null -ne $response -and [int]$response.StatusCode -eq 400) {
+                        if (-not $failureText) {
+                            $reader = [IO.StreamReader]::new($response.GetResponseStream())
+                            try { $failureText = $reader.ReadToEnd() }
+                            finally { $reader.Dispose() }
+                        }
+                        $failure = $failureText | ConvertFrom-Json
+                        $retry = $failure.code -eq 'obs-connect-failed'
+                    }
+                } catch { }
+                if (-not $retry -or $attempt -eq 2) { throw 'Automatic visibility could not connect to OBS.' }
+                Start-Sleep -Seconds 1
+            }
+        }
+        if (-not (Test-ObsOwnerAlive)) { return }
+        if (-not $connected) { throw 'Automatic visibility did not confirm its OBS connection.' }
+        $state = Invoke-RestMethod -Uri "$baseUrl/api/automation" -TimeoutSec 2
+        if ($state.running -or $state.error -or -not $state.connected -or
+            -not (Test-ObsOwnerAlive)) { return }
+        # Start is sent once. Runtime failures and a manual Stop remain stopped.
+        Invoke-RestMethod -Method Post -Uri "$baseUrl/api/automation/start" `
+            -ContentType 'application/json' -Body '{}' -TimeoutSec 6 | Out-Null
+    } catch {
+        # Input polling and the helper's process ownership survive an optional failure.
+        try {
+            [IO.File]::AppendAllText((Join-Path $DataDir "obs-automation-$Port.log"),
+                "OBS startup could not enable saved automatic visibility. Start it from Lift Trace settings.`r`n")
+        } catch { }
+    }
+}
+
 try {
     Set-BridgeStatus 'starting'
     $obsProcess = Get-Process -Id $ObsProcessId -ErrorAction Stop
@@ -111,6 +190,7 @@ try {
     Set-BridgeStatus 'ready'
     $mutex.ReleaseMutex()
     $haveMutex = $false
+    Start-SavedAutomation
     if ($null -ne $ownedServer) {
         # Watch the original OBS process; do not terminate a server started elsewhere.
         while (-not $ownedServer.HasExited) {

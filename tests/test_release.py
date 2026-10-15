@@ -123,6 +123,23 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.archive.read_bytes(), (output / self.archive.name).read_bytes())
 
+    def test_extracted_source_can_replay_visibility_without_obs(self):
+        extracted = self.workspace / "visibility-extracted"
+        with zipfile.ZipFile(self.archive) as archive:
+            archive.extractall(extracted)
+        result = subprocess.run(
+            [sys.executable, "tools/replay_visibility.py"], cwd=extracted,
+            capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        rows = [json.loads(line) for line in result.stdout.splitlines()]
+        # Match the live policy regression: the 0.6s sampling gap at t=2 is
+        # within the existing 2s capture-stall grace and must not hide sources.
+        self.assertEqual([(row["at"], row["applied"]) for row in rows if row["requests"]],
+                         [(0, False), (0.35, True), (1, False), (1.4, True)])
+        self.assertFalse(rows[-1]["running"])
+        self.assertEqual(rows[-1]["requests"], [])
+
     def test_missing_required_input_fails_before_output(self):
         source = self.checkout / "LICENSE"
         contents = source.read_bytes()

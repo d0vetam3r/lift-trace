@@ -136,6 +136,23 @@ class RuntimeProvenanceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "libffi and liblzma runtime binaries are missing"):
             verify_runtime(self.base, self.internal, pin=self.pin)
 
+    def test_dependency_exception_requires_the_individually_verified_path_and_hash(self):
+        target = self.internal / "PIL" / "_imaging.pyd"
+        target.parent.mkdir()
+        target.write_bytes(b"wheel fixture")
+        with self.assertRaisesRegex(RuntimeError, "differs from the official runtime"):
+            verify_runtime(self.base, self.internal, pin=self.pin)
+        verified = {"PIL/_imaging.pyd": {"sha256": digest(b"wheel fixture"), "source": "PIL/_imaging.pyd"}}
+        result = verify_runtime(self.base, self.internal, pin=self.pin, dependency_binaries=verified)
+        self.assertNotIn("PIL/_imaging.pyd", result["bundledFiles"])
+        self.assertEqual(result["separatelyVerifiedDependencyFiles"], verified)
+        target.write_bytes(b"changed after verification")
+        with self.assertRaisesRegex(RuntimeError, "dependency changed"):
+            verify_runtime(self.base, self.internal, pin=self.pin, dependency_binaries=verified)
+        target.unlink()
+        with self.assertRaisesRegex(RuntimeError, "dependency binary disappeared"):
+            verify_runtime(self.base, self.internal, pin=self.pin, dependency_binaries=verified)
+
     def test_escaping_and_ambiguous_archive_paths_are_rejected_before_extraction(self):
         names = ("../outside.dll", "dir/../../outside.dll", "/outside.dll", "C:/outside.dll", "..\\outside.dll",
                  "dir./outside.dll", "outside.dll ", "dir/./outside.dll", "dir//outside.dll")

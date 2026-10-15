@@ -1,14 +1,8 @@
 /** Pure input-history geometry. No device, OBS, or browser dependencies. */
-// Fullscreen 1920×1080 reference, cross-checked against one INFINITAS capture.
-// Internal lane size reported by an INFINITAS simulator author's measurements:
-// https://note.com/masaoblue/n/n02ecb7426a76
-export const FULLSCREEN_LANE_HEIGHT = 723;
-// Standard fullscreen reference, not coordinates measured from a user's OBS scene.
-// 1P is cross-checked against a 1920x1080 capture; 2P mirrors its lane rectangle.
-export const FULLSCREEN_LAYOUT = Object.freeze({
-  canvasWidth: 1920, laneX: 75, laneWidth: 432, judgmentY: 723,
-  scratchWidth: 5 / 3, blackKeyRatio: 7 / 9,
-});
+import * as infinitas from './games/infinitas.js';
+
+// Preserve the existing imports used by the settings UI and renderer.
+export { FULLSCREEN_LANE_HEIGHT, FULLSCREEN_LAYOUT } from './games/infinitas.js';
 
 export const DEFAULTS = Object.freeze({
   greenNumber: 300,
@@ -56,7 +50,7 @@ export function normalizeSettings(raw = {}) {
     : Object.hasOwn(raw, 'overlayHeight') ? raw.overlayHeight : raw.liftHeight;
   const manualOverlayHeight = bounded(savedManualHeight, DEFAULTS.manualOverlayHeight, 40, 2160, true);
   const overlayHeight = heightMode === 'manual' ? manualOverlayHeight
-    : Math.max(1, Math.round(FULLSCREEN_LANE_HEIGHT * liftNumber / 1000));
+    : infinitas.getAutomaticOverlayHeight(liftNumber);
   return {
     greenNumber: bounded(raw.greenNumber, DEFAULTS.greenNumber, 50, 2000),
     suddenNumber,
@@ -86,42 +80,17 @@ export function normalizeSettings(raw = {}) {
   };
 }
 
-/**
- * Approximate IIDX convention: green / 600 seconds visible above the judgment line.
- * KONAMI documents green as visibility duration, but not this numeric conversion:
- * https://p.eagate.573.jp/game/2dx/26/howto/play/option_speed.html
- * Treat this as a calibration starting point, not a measured game synchronization.
- * SUDDEN+ and LIFT use a continuous /1000 approximation at fullscreen 1080p.
- * Output dimensions only crop trails and never change their pixel speed.
- */
+// Keep normalization and the existing API here; only the game calculations move.
 export function getGameGeometry(settings = DEFAULTS) {
-  const s = normalizeSettings(settings);
-  return {
-    baseHeight: FULLSCREEN_LANE_HEIGHT,
-    visibleHeight: FULLSCREEN_LANE_HEIGHT * (1000 - s.suddenNumber - s.liftNumber) / 1000,
-    suddenHeight: FULLSCREEN_LANE_HEIGHT * s.suddenNumber / 1000,
-    liftHeight: FULLSCREEN_LANE_HEIGHT * s.liftNumber / 1000,
-  };
+  return infinitas.getGameGeometry(normalizeSettings(settings));
 }
 
 export function getSpeed(settings = DEFAULTS) {
-  const s = normalizeSettings(settings);
-  return getGameGeometry(s).visibleHeight * 600 / s.greenNumber * s.speedScale;
+  return infinitas.getSpeed(normalizeSettings(settings));
 }
 
-/** OBS top-left position at 100% scale for the standard fullscreen reference.
- * Size changes crop/extend the output, never move the game judgment line.
- * SUDDEN covers the top; only LIFT moves the judgment line vertically.
- */
 export function getObsPlacement(settings = DEFAULTS) {
-  const s = normalizeSettings(settings);
-  const x = s.side === '2P'
-    ? FULLSCREEN_LAYOUT.canvasWidth - FULLSCREEN_LAYOUT.laneX - FULLSCREEN_LAYOUT.laneWidth
-    : FULLSCREEN_LAYOUT.laneX;
-  return {
-    x: x + s.obsOffsetX,
-    y: FULLSCREEN_LAYOUT.judgmentY - Math.round(FULLSCREEN_LANE_HEIGHT * s.liftNumber / 1000) + s.obsOffsetY,
-  };
+  return infinitas.getObsPlacement(normalizeSettings(settings));
 }
 
 const MAX_EVENTS = 4096;
