@@ -25,7 +25,7 @@ Keep the extracted folder's files together. The guide assumes your game capture 
 
 ## What it shows
 
-- **Keys and holds:** seven lanes show key presses; held inputs create longer notes.
+- **Keys and holds:** show bodies or heads only across seven key lanes, with adjustable brief-input length. Actual input records stay unchanged.
 - **Scratch direction:** clockwise ↻ uses light coral; counterclockwise ↺ uses deep coral. Reversals change both the arrow and color.
 - **Height and speed:** green number, LIFT and SUDDEN+ calibrate falling speed. Height follows LIFT automatically or can be set manually; changing display height alone keeps the same speed.
 - **OBS placement:** copy the address, dimensions and X/Y position. Optional OBS integration starts the overlay with OBS and stops the instance it started when OBS closes.
@@ -36,6 +36,8 @@ Input notes describe controller activity; the app does not read chart notes or g
 
 | I want to… | Read |
 | --- | --- |
+| Show heads only or tune brief-input length | [Input note appearance](docs/USER_GUIDE.en.md#input-note-appearance) |
+| Show selected OBS items only during play | [Optional automatic visibility · experimental](docs/USER_GUIDE.en.md#optional-automatic-visibility) |
 | Set up the keys and turntable | [Controller setup](docs/USER_GUIDE.en.md#3-follow-the-key-and-scratch-setup-prompts) |
 | Align the overlay with the game | [OBS placement](docs/USER_GUIDE.en.md#5-copy-the-numbers-to-place-the-overlay) |
 | Change LIFT, height or 1P/2P | [Update size and position](docs/USER_GUIDE.en.md#after-changing-height-or-play-side) |

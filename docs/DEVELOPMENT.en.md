@@ -47,7 +47,7 @@ npm test
 
 Some Python tests open temporary loopback listeners. A restricted environment must permit them. Tests use synthetic input, so they require no controller and cannot verify physical compatibility or game-capture synchronization.
 
-`.github/workflows/verify.yml` runs these checks on Windows and Ubuntu with Python 3.10/3.13 and Node 22. All four combinations passed in the recorded 2026-10-12 push run; see [Validation](VALIDATION.en.md) for the tested commit and run. Cross-platform test success does not add native controller support to non-Windows systems. A manual workflow dispatch is configured to prepare the pinned runtime, build the Windows app with provenance verification, run its smoke check and upload an Actions artifact; it does not publish a release. That Windows build job was skipped in the recorded push run.
+`.github/workflows/verify.yml` runs these checks on Windows and Ubuntu with Python 3.10/3.13 and Node 22. A manual run of this verification workflow also builds Windows artifacts but does not publish a release. The separate `.github/workflows/release.yml` publishes a GitHub Release from main only after tests, a provenance-verified build, smoke checks and asset verification pass. See [Releasing](RELEASING.en.md) for triggers and failure recovery. [Validation](VALIDATION.en.md) separates historical runs from current evidence. Cross-platform test success does not add native controller support to non-Windows systems.
 
 ## Structure
 
@@ -83,7 +83,7 @@ The settings page is a client of the server, not the owner of native input polli
 
 ## Optional INFINITAS automatic visibility
 
-The current development source connects a local OBS WebSocket client, target-selection UI and SCORE-region detector. This feature is not in public v0.1.0, and this change does not publish a new release. See the [user guide](USER_GUIDE.en.md#optional-infinitas-automatic-visibility-unreleased) for setup. INFINITAS geometry, speed and placement calculations live in `web/games/infinitas.js`; existing settings, function names and results are preserved.
+0.2.0 includes optional experimental visibility control using a local OBS WebSocket client, target-selection UI and SCORE-region detector. Lift Trace runs independently without Core or a remote control. See the [user guide](USER_GUIDE.en.md#optional-automatic-visibility) for setup. INFINITAS geometry, speed and placement calculations live in `web/games/infinitas.js`; existing settings, function names and results are preserved.
 
 The first profile confirms entry using the SCORE region `(170, 953, 90, 20)` of an unscaled 1920 × 1080 original source. It uses bundled `assets/infinitas-score-1080p.png`, with a valid existing local reference preferred and never overwritten. After 0.2 seconds of fresh SCORE matches, it retains the fixed BPM-label region `(1414, 998, 55, 15)` in memory. That label can maintain already confirmed gameplay when FULL COMBO replaces SCORE; it cannot initiate a new play session. It does not read numeric BPM, song names or charts. Stop, mismatch, invalid images/timestamps, connection errors or an observation gap beyond 2 seconds clear the retained marker. Scope remains one tested 1P layout, including pre-song play UI, without guarantees for 2P, DP, arbitrary skins, resolutions or HDR. Screenshots and the BPM reference are not written to disk.
 

@@ -4,9 +4,15 @@
 
 [Home](../README.en.md) · [User guide](USER_GUIDE.en.md) · [Development](DEVELOPMENT.en.md) · [Contributing](../CONTRIBUTING.en.md)
 
-This record separates evidence for the **public 0.1.0 prototype and unreleased development source**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
+This record separates evidence for the **v0.2.0 release-preparation source, public 0.1.0 prototype and earlier development source**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
 
-The two 2026-10-15 feature records below describe separate contributions before integration. Their test counts and results do not establish validation of the combined source.
+## 2026-10-15: v0.2.0 release preparation — integrated source
+
+The full suites were rerun on the final release-preparation source combining visibility stability, input note appearance and release verification tools. On Windows with the official Python 3.13.16 environment, **200 of 200 Python tests** passed; **126 of 126 JavaScript tests** passed. These are fresh integrated-source results, not a sum of the separate feature counts.
+
+This is source-test evidence, not a completed v0.2.0 EXE build or packaged smoke check. Simultaneous live-game, physical-controller and OBS use, first-time installation on another PC, and human Korean/Japanese/English review were not newly verified. The feature-specific and earlier package results below retain their original historical scope.
+
+The two 2026-10-15 feature records below describe separate contributions before integration. Their test counts and results do not establish validation of the combined source. “Unreleased” in the headings below preserves their status at the time of those historical records.
 
 ## 2026-10-15: input note appearance (unreleased)
 

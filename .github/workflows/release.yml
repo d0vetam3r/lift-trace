@@ -1,0 +1,136 @@
+name: Build and publish a release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - .github/release-intent
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lift-trace-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main' && github.event.repository.fork == false && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - id: metadata
+        name: Require a stable version and reviewed versioned notes
+        shell: bash
+        run: |
+          version=$(python tools/verify_release.py metadata)
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+  tests:
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.13']
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Optional test dependencies
+        run: python -m pip install -r requirements-automation.txt
+      - name: Python tests
+        run: python -m unittest discover -s tests -p "test_*.py"
+      - name: JavaScript tests
+        run: npm test
+      - name: Source packaging
+        run: python tools/build_release.py
+
+  build:
+    needs: [prepare, tests]
+    runs-on: windows-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Prepare the pinned official runtime
+        run: python tools/prepare_runtime.py
+      - name: Create a fresh build environment
+        run: .\artifacts\python-runtime\python\python.exe -m venv .venv-build
+      - name: Install pinned build tools
+        run: .\.venv-build\Scripts\python.exe -m pip install -r requirements-build.txt
+      - name: Build source archive
+        run: python tools/build_release.py
+      - name: Build Windows archive with strict provenance
+        run: .\.venv-build\Scripts\python.exe tools/build_windows.py --require-verified-runtime
+      - name: Exercise the extracted Windows app
+        run: python tools/smoke_windows.py
+      - name: Verify matching release archives and notices
+        run: python tools/verify_release.py verify
+      - id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          path: |
+            artifacts/lift-trace-source-${{ needs.prepare.outputs.version }}.zip
+            artifacts/lift-trace-source-${{ needs.prepare.outputs.version }}.zip.sha256
+            artifacts/lift-trace-windows-x64-${{ needs.prepare.outputs.version }}.zip
+            artifacts/lift-trace-windows-x64-${{ needs.prepare.outputs.version }}.zip.sha256
+            artifacts/SHA256SUMS
+
+  publish:
+    needs: [prepare, build]
+    if: github.ref == 'refs/heads/main' && github.event.repository.fork == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: verified-release
+          digest-mismatch: error
+      - name: Verify remote assets and exact tag before publishing the draft
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python tools/verify_release.py publish --directory verified-release

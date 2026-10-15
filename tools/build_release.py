@@ -85,6 +85,7 @@ DOCUMENTATION_FILES = (
     "docs/VALIDATION.md",
     "docs/VALIDATION.ja.md",
     "docs/VALIDATION.en.md",
+    "docs/releases/0.2.0.md",
     "docs/images/lane-layout.svg",
     "docs/images/lift-trace-demo.gif",
     "docs/images/README.md",
@@ -105,9 +106,12 @@ SOURCE_FILES = (
     "tools/smoke_windows.py",
     "tools/render_readme_demo.mjs",
     "tools/replay_visibility.py",
+    "tools/verify_release.py",
     "requirements-build.txt",
     "requirements-automation.txt",
     ".github/workflows/verify.yml",
+    ".github/workflows/release.yml",
+    ".github/release-intent",
     "tests/client.test.mjs",
     "tests/automation.test.mjs",
     "tests/engine.test.mjs",
@@ -129,6 +133,7 @@ SOURCE_FILES = (
     "tests/test_obs_connection.py",
     "tests/test_obs_bridge_autostart.py",
     "tests/test_infinitas_detector.py",
+    "tests/test_verify_release.py",
 )
 
 
