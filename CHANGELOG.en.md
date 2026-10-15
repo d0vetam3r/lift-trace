@@ -4,6 +4,10 @@
 
 Changes to the public overlay distribution are recorded here. Internal development iterations are included in the first public version below.
 
+## Unreleased
+
+- Document the three projects' responsibilities, independent operation, optional integration, current availability and long-term direction toward a modular open-source ecosystem in the README.
+
 ## 0.2.0 — 2026-10-15
 
 - Retain a BPM-label reference in memory only after fresh SCORE confirmation, maintaining gameplay visibility during FULL COMBO. The secondary label cannot initiate a new play session and does not read numeric BPM or song names.

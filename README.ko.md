@@ -50,6 +50,20 @@ Windows 10/11(64비트), OBS Studio, INFINITAS, 호환 컨트롤러가 필요합
 
 Windows 앱은 **코드 서명이 없는 초기 시험판**입니다. [검증 현황](docs/VALIDATION.md)에 확인한 환경과 아직 확인하지 못한 항목을 기록했습니다. 로그를 공유하기 전에는 [보안과 로컬 데이터](SECURITY.md)를 확인하세요.
 
+## 관련 프로젝트와 장기 방향
+
+Lift Trace는 **INFINITAS 방송을 위한 모듈형 도구 생태계**의 입력 시각화 프로젝트입니다. 각 프로젝트는 별도 저장소와 실행 단위를 유지하며, 필요한 기능만 선택적으로 연결합니다.
+
+| 프로젝트 | 역할 | 현재 공개 상태 |
+| --- | --- | --- |
+| [Lift Trace](https://github.com/d0vetam3r/lift-trace) | 실제 입력 시각화와 선택적 플레이 감지·오버레이 자동 표시 | 공개 · MIT |
+| [INFINITAS Live Core](https://github.com/d0vetam3r/infinitas-live-core) | OBS 영상 보관·저장, 곡명 인식, 마이크 제어와 로컬 API | 비공개 |
+| [INFINITAS Remote](https://github.com/d0vetam3r/infinitas-remote) | 아이패드 웹 리모컨, 키 입력, Core 상태 표시와 저장·마이크 요청 | 비공개 |
+
+**Lift Trace는 Core와 Remote 없이 단독 실행할 수 있습니다.** 연동 구성에서는 Core의 OBS 어댑터가 오버레이의 표시 상태를 관찰하고, Remote의 PC 서버가 Core의 로컬 HTTP API를 호출합니다. Lift Trace가 Core를 호출하거나 다른 프로젝트를 설치·실행할 필요는 없습니다. Remote의 키 입력·버튼 설정·추천도 Core 없이 사용할 수 있으며, 영상저장·곡명 표시·OBS 마이크 제어에만 Core가 필요합니다. 두 연동 프로젝트는 Lift Trace 배포본에 포함되지 않습니다.
+
+장기 목표는 독립 실행과 선택적 연동을 유지하면서 **INFINITAS 방송을 위한 모듈형 오픈소스 생태계**로 발전하는 것입니다. 현재 오픈소스로 공개된 프로젝트는 Lift Trace입니다. Live Core와 Remote는 비공개로 유지하며, 라이선스·포함 자료의 배포 조건을 검토한 뒤 별도 결정에 따라 공개 여부를 정합니다. 비공개 저장소 링크는 접근 권한이 있는 계정에서만 열 수 있습니다.
+
 ## 개발과 프로젝트 정보
 
 Windows 앱과 소스 ZIP은 같은 프로젝트에서 만들어집니다. 기여하려면 저장소를 복제하거나 `lift-trace-source-*.zip`을 받으세요. 바로 실행할 프로그램은 위의 Windows ZIP입니다.
