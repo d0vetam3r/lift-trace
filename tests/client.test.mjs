@@ -257,6 +257,59 @@ test('SSE output-height changes preserve current note position and fullscreen sp
   assert.equal(client.engine.events.length, 1);
 });
 
+test('input body visibility syncs and persists without resetting a held key or scratch', async () => {
+  const client = await connected({inputMode:'native', shortInputEnabled:true,
+    shortInputThresholdMs:300, shortInputPercent:50});
+  client.stream.send(sample(1000, [true], [0]));
+  client.stream.send(sample(1010, [true], [0.1]));
+  const history = structuredClone(client.engine.events);
+  const activeKey = client.engine.active.get(1), activeScratch = client.engine.active.get(0);
+  client.configure({...client.settings, inputBodyEnabled:false});
+  const saved = parseSettingsFile(JSON.stringify({version:2, settings:client.settings}));
+  const overlay = await connected(saved);
+  assert.equal(overlay.settings.inputBodyEnabled, false);
+  assert.equal(overlay.engine.settings.inputBodyEnabled, false);
+  assert.equal(overlay.settings.shortInputEnabled, true);
+  assert.equal(overlay.settings.shortInputThresholdMs, 300);
+  assert.equal(overlay.settings.shortInputPercent, 50);
+  for (const inputBodyEnabled of [true, false]) {
+    client.stream.send({type:'settings', settings:{...client.settings, inputBodyEnabled}});
+    assert.equal(client.settings.inputBodyEnabled, inputBodyEnabled);
+    assert.equal(client.engine.settings.inputBodyEnabled, inputBodyEnabled);
+    assert.deepEqual(client.engine.events, history);
+    assert.equal(client.engine.active.get(1), activeKey);
+    assert.equal(client.engine.active.get(0), activeScratch);
+  }
+});
+
+test('brief-input display settings sync, persist while disabled, and preserve raw key and scratch history', async () => {
+  const client = await connected({inputMode:'native'});
+  const updates = [];
+  client.addEventListener('settings', event => updates.push(event.detail));
+  client.stream.send(sample(1000, [true], [0]));
+  client.stream.send(sample(1010, [true], [0.1]));
+  client.stream.send(sample(1050, [false], [0.2]));
+  const history = structuredClone(client.engine.events);
+  const settings = {...client.settings, shortInputEnabled:true, shortInputThresholdMs:175, shortInputPercent:40};
+  client.configure(settings);
+  assert.equal(client.settings.shortInputEnabled, true);
+  assert.equal(client.engine.settings.shortInputThresholdMs, 175);
+  assert.equal(client.engine.settings.shortInputPercent, 40);
+  client.stream.send({type:'settings', settings:{...client.settings, shortInputEnabled:false}});
+  assert.equal(client.settings.shortInputEnabled, false);
+  assert.equal(client.settings.shortInputThresholdMs, 175);
+  assert.equal(client.settings.shortInputPercent, 40);
+  assert.deepEqual(client.engine.events, history);
+  assert.equal(client.engine.active.get(0).direction, 1);
+  assert.equal(updates.length, 2);
+  const saved = parseSettingsFile(JSON.stringify({version:2, settings:client.settings}));
+  const overlay = await connected(saved);
+  assert.deepEqual(overlay.settings, client.settings);
+  assert.equal(overlay.engine.settings.shortInputEnabled, false);
+  assert.equal(overlay.engine.settings.shortInputThresholdMs, 175);
+  assert.equal(overlay.engine.settings.shortInputPercent, 40);
+});
+
 test('legacy SSE settings retain the old crop for manual mode and default to auto height', async () => {
   const client = await connected();
   client.stream.send({ type: 'settings', settings: { greenNumber: 300, visibleHeight: 500, liftHeight: 350, inputMode: 'native' } });

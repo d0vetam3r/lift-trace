@@ -38,6 +38,24 @@
           <div class="two-fields"><label><span data-i18n="side">Player side</span><select id="side"><option value="1P" data-i18n="side1P">1P · scratch on left</option><option value="2P" data-i18n="side2P">2P · scratch on right</option></select></label><label><span data-i18n="delay">Display delay</span> <span class="unit">ms</span><input id="delayMs" type="number" min="0" max="2000" step="1"></label></div>
           <p class="field-help" data-i18n="delayHelp">Increase this if the input overlay appears before the game capture.</p>
         </section>
+        <section class="setting-section short-input-settings" id="short-input-settings" aria-labelledby="short-input-heading">
+          <div class="section-title"><h2 id="short-input-heading" data-i18n="shortInputHeading">Input note appearance</h2></div>
+          <label class="check"><input id="inputBodyEnabled" type="checkbox" aria-describedby="input-body-help" checked> <span data-i18n="inputBodyEnabled">Show key note bodies</span></label>
+          <p id="input-body-help" class="field-help" data-i18n="inputBodyHelp">On: continuous input notes. Off: heads only, even while holding. Applies to keys 1–7; scratches stay unchanged.</p>
+          <label class="check"><input id="shortInputEnabled" type="checkbox" aria-describedby="short-input-help"> <span data-i18n="shortInputEnabled">Shorten brief inputs</span></label>
+          <p class="field-help tuning-intro" data-i18n="shortInputTuningHelp">Compare sample inputs below, then apply to your overlay. A higher percentage keeps more of the original length.</p>
+          <div class="two-fields"><label for="shortInputPercent"><span data-i18n="shortInputPercent">Length to keep</span> <span class="unit">%</span><input id="shortInputPercent" type="number" min="1" max="100" step="1" aria-describedby="short-input-ratio" disabled></label><label for="shortInputThresholdMs"><span data-i18n="shortInputThresholdMs">Time threshold</span> <span class="unit">ms</span><input id="shortInputThresholdMs" type="number" min="1" max="2000" step="1" aria-describedby="short-input-help" disabled></label></div>
+          <input id="short-input-slider" type="range" min="1" max="100" step="1" value="30" data-i18n-aria-label="shortInputPercent" aria-label="Length to keep" aria-describedby="short-input-ratio" disabled>
+          <div class="tuning-range-labels" aria-hidden="true"><span data-i18n="shortInputShorter">Shorter</span><span data-i18n="shortInputFullLength">100% · original length</span></div>
+          <div class="tuning-presets" role="group" data-i18n-aria-label="shortInputPresets" aria-label="Length presets">
+            <button type="button" class="secondary" data-short-percent="30" aria-pressed="false">30%</button><button type="button" class="secondary" data-short-percent="50" aria-pressed="false">50%</button><button type="button" class="secondary" data-short-percent="70" aria-pressed="false">70%</button><button type="button" class="secondary" data-short-percent="85" aria-pressed="false">85%</button><button type="button" class="secondary" data-short-percent="100" aria-pressed="false">100%</button>
+          </div>
+          <p id="short-input-ratio" class="tuning-ratio"></p>
+          <figure class="tuning-comparison"><canvas id="short-input-comparison" width="300" height="190" data-i18n-aria-label="shortInputComparison" aria-label="Original and adjusted sample input lengths"></canvas><figcaption data-i18n="shortInputComparisonHelp">Released sample inputs. Note heads keep their thickness.</figcaption></figure>
+          <p id="short-input-help" class="field-help"></p>
+          <div class="tuning-actions"><button id="short-input-apply" type="button" class="primary" data-i18n="shortInputApply">Apply and save</button><button id="short-input-discard" type="button" class="quiet" data-i18n="shortInputDiscard">Revert edits</button></div>
+          <p id="short-input-status" class="field-help" role="status" aria-live="polite"></p>
+        </section>
         <section class="setting-section" id="game-settings"><div class="section-title"><h2 data-i18n="speedHeading">Game speed</h2><span class="section-index">02</span></div>
           <p class="screen-reference" data-i18n="fullscreen">1920 × 1080 · fullscreen game</p>
           <div class="green-field"><label for="greenNumber"><span data-i18n="greenNumber">Green number</span> <span class="unit">GREEN NUMBER</span></label><input id="greenNumber" type="number" min="50" max="2000" step="1"></div>

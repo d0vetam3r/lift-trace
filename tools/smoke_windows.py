@@ -113,7 +113,8 @@ def verify(archive_path: Path) -> None:
             assert automation["templateReady"] is True, "Bundled INFINITAS reference is missing or invalid"
             assert automation["referenceSource"] == "builtin", "Fresh users should not need screen registration"
             assert "password" not in automation["config"]
-            for route in ("/", "/overlay.html", "/app.js", "/automation.js", "/i18n.js", "/translations.js", "/setup.js"):
+            for route in ("/", "/overlay.html", "/app.js", "/automation.js", "/i18n.js", "/translations.js", "/setup.js",
+                          "/settings-writer.js", "/short-input-controls.js", "/short-input-preview.js"):
                 assert request(standalone_port, route), route
         finally:
             stop(standalone)

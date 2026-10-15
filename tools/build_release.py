@@ -17,8 +17,8 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
-# The local OBS helper retains the owner's private service integration. Public
-# exports use this explicit overlay-only counterpart, flattened into the root.
+# Private development trees may supply an overlay-only helper override.
+# Normal public checkouts use the helper at the repository root.
 PUBLIC_RUNTIME_OVERRIDES = {
     "start-obs-bridge.ps1": "distribution/start-obs-bridge.ps1",
 }
@@ -50,6 +50,9 @@ RUNTIME_FILES = (
     "web/render.js",
     "web/style.css",
     "web/setup.js",
+    "web/settings-writer.js",
+    "web/short-input-controls.js",
+    "web/short-input-preview.js",
     "web/translations.js",
 )
 
@@ -111,6 +114,9 @@ SOURCE_FILES = (
     "tests/i18n.test.mjs",
     "tests/setup.test.mjs",
     "tests/render.test.mjs",
+    "tests/settings-writer.test.mjs",
+    "tests/short-input-controls.test.mjs",
+    "tests/short-input-preview.test.mjs",
     "tests/test_native_input.py",
     "tests/test_server.py",
     "tests/test_release.py",

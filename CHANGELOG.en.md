@@ -14,6 +14,10 @@ Changes to the public overlay distribution are recorded here. Internal developme
 - Extract INFINITAS calculations while preserving existing settings and results. Connect optional experimental automatic visibility to the app, with local OBS WebSocket connection, target selection by actual scene/source names and manual start/stop. Bundle a 1080p SCORE detection reference so startup needs no screen registration; prefer a valid existing personal reference. Detection includes pre-song play UI in the tested 1P layout.
 - Add or exclude automation targets with checkboxes and distinguish duplicate source placements by upper/lower OBS list position. Reopening settings restores names and selections without stopping active automation. Reduce first-time setup to connect, save selection and start; collapse additional help and remove the separate start acknowledgement.
 - Leave automation off by default after app restart and stop it on OBS disconnect or scene-collection change. Keep the OBS password and personal local reference image outside ordinary settings export and distribution files. BMS and an external plugin loader are not implemented; this feature is not in public v0.1.0.
+
+- Add a key note body toggle under Input note appearance, allowing keys 1–7 to show only their falling heads. Bodies remain enabled by default. Actual input records, scratches and the example game chart stay unchanged.
+- Add visual shortening for released brief key inputs, with a time threshold and percentage to keep. Comparison samples, a slider and presets support tuning before Apply and save or Revert edits. Turning bodies off preserves these values.
+
 - Reorganize the English, Korean and Japanese READMEs around an animated demonstration, Windows setup, features and task-based guide links.
 - Add an original synthetic demo rendered with the application's drawing code, with optional developer instructions for regenerating it.
 - Make Korean the default documentation language.
