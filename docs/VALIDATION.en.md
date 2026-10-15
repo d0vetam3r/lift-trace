@@ -8,7 +8,7 @@ This record separates evidence for the **v0.2.0 release-preparation source, publ
 
 ## 2026-10-15: v0.2.0 release preparation — integrated source
 
-The full suites were rerun on the final release-preparation source combining visibility stability, input note appearance and release verification tools. On Windows with the official Python 3.13.16 environment, **200 of 200 Python tests** passed; **126 of 126 JavaScript tests** passed. These are fresh integrated-source results, not a sum of the separate feature counts.
+The full suites were rerun on the final release-preparation source combining visibility stability, input note appearance and release verification tools. On Windows with the official Python 3.13.16 environment, **201 of 201 Python tests** passed; **126 of 126 JavaScript tests** passed. These are fresh integrated-source results, not a sum of the separate feature counts.
 
 This is source-test evidence, not a completed v0.2.0 EXE build or packaged smoke check. Simultaneous live-game, physical-controller and OBS use, first-time installation on another PC, and human Korean/Japanese/English review were not newly verified. The feature-specific and earlier package results below retain their original historical scope.
 
