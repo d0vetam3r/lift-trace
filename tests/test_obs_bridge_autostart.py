@@ -104,18 +104,31 @@ class BridgeAutostartTests(unittest.TestCase):
         except (OSError, ValueError):
             return []
 
-    def wait_for(self, predicate, timeout=10):
+    def fixture_diagnostics(self):
+        status = self.data / f"obs-bridge-{self.owner.pid}-{self.port}.status"
+        try:
+            message = status.read_text(encoding="utf-8", errors="replace")[:2000]
+        except OSError:
+            message = "missing"
+        return {"mode": getattr(self, "mode", None), "bridgeStatus": message,
+                "helperExit": self.helper.poll() if self.helper is not None else None,
+                "ownerExit": self.owner.poll(), "recentCalls": self.calls()[-8:]}
+
+    def wait_for(self, predicate, timeout=10, *, description="expected state"):
         deadline = time.monotonic() + timeout
+        last_error = None
         while time.monotonic() < deadline:
             try:
                 if predicate():
                     return
-            except (OSError, ValueError, http.client.HTTPException):
-                pass
+            except (OSError, ValueError, http.client.HTTPException) as error:
+                last_error = type(error).__name__
             time.sleep(0.05)
-        self.fail("Fixture did not reach the expected state")
+        self.fail(f"Fixture did not reach {description} within {timeout}s; "
+                  f"lastError={last_error}; diagnostics={self.fixture_diagnostics()}")
 
     def begin(self, mode="normal", *, enabled=True, existing=False):
+        self.mode = mode
         (self.data / "fixture-mode.json").write_text(json.dumps({"mode": mode}))
         (self.data / "obs-automation-autostart.json").write_text(json.dumps({"enabled": enabled}))
         standalone = None
@@ -129,7 +142,16 @@ class BridgeAutostartTests(unittest.TestCase):
                                  "-Port", str(self.port), "-DeviceId", "-1", "-ObsProcessId", str(self.owner.pid),
                                  "-DataDir", str(self.data)])
         status = self.data / f"obs-bridge-{self.owner.pid}-{self.port}.status"
-        self.wait_for(lambda: status.exists() and status.read_text() == "ready")
+        def ready():
+            message = status.read_text() if status.exists() else ""
+            if message == "ready":
+                return True
+            if message.startswith("error:") or self.helper.poll() is not None:
+                self.fail(f"Bridge startup failed; diagnostics={self.fixture_diagnostics()}")
+            return False
+        # Cold Windows CI starts PowerShell, probes Python, then launches the
+        # fixture server. Keep this bounded but separate from HTTP state waits.
+        self.wait_for(ready, timeout=30, description="bridge readiness")
         return standalone
 
     def assert_owned_shutdown(self):
@@ -242,7 +264,9 @@ class BridgeAutostartTests(unittest.TestCase):
                 process.terminate()
                 process.wait(timeout=3)
         # The temporary fixture directory is the sole cleanup target.
-        self.assertEqual(self.root, Path(self.temporary.name).absolute())
+        # Windows TEMP may use RUNNER~1 while self.root has the long path name.
+        # Resolve both identities before checking the exact cleanup target.
+        self.assertEqual(self.root, Path(self.temporary.name).resolve(strict=True))
         self.temporary.cleanup()
 
 
