@@ -10,7 +10,7 @@ This document explains the prototype's model and constraints. It is not required
 
 The Windows ZIP contains a desktop launcher, the Python runtime and required application files, bundled runtime notices, public documentation, and optional OBS Lua/PowerShell integration. The source ZIP contains the same project's source, tests and build tools. It contains no installed Python runtime.
 
-Neither distribution includes the iPad remote server, a combined streaming launcher, personal controller settings, machine-specific paths, OBS profiles, game binaries, music or game images. The schematic in the user guides is original project artwork.
+Neither distribution includes the iPad remote server, a combined streaming launcher, personal controller settings, machine-specific paths, OBS profiles, game binaries or music. The only game image included is the 90 × 20 SCORE reference used for automatic visibility. The schematic in the user guides is original project artwork.
 
 The public OBS helper starts only the Lift Trace overlay. It does not search for or launch extra-service scripts beside the app.
 
@@ -79,7 +79,7 @@ The settings page supplies separate X/Y copy buttons. Changing settings only rec
 
 ## Meaning of each input note
 
-The table describes the default display. The development version can change the appearance of key input using the settings below.
+The table describes the default display. 0.2.0 can change the appearance of key input using the settings below.
 
 | Input | Display |
 | --- | --- |
@@ -93,7 +93,9 @@ A held key can look like a long note, but the tool cannot know whether the chart
 
 Native input targets a polling interval near 4 ms. Drawing follows browser animation frames; the optional OBS script sets the Browser Source to 60 FPS. OBS output rate, scheduling, drivers and capture latency can limit the result. Synthetic demo smoothness does not establish actual capture synchronization.
 
-### Key note bodies and brief input display (unreleased)
+<a id="key-note-bodies-and-brief-input-display-unreleased"></a>
+
+### Key note bodies and brief input display
 
 | Setting | Default · range | Behavior |
 | --- | --- | --- |

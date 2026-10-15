@@ -67,9 +67,12 @@ Check the scratch display too.
 
 Alternating directions changes both the arrow and color. If they are reversed, repeat **Controller setup** and check that you followed each direction prompt. Continuous movement in one direction may appear as one connected input note. The app does not read the chart, so it cannot divide that movement into the game's individual scratch notes.
 
-### Optional: choose how input notes look (unreleased)
+<a id="optional-choose-how-input-notes-look-unreleased"></a>
+<a id="input-note-appearance"></a>
 
-In the current development version, **Input note appearance → Show key note bodies** switches between continuous trails and heads only. With bodies on, a key note extends for the press duration. With bodies off, keys 1–7 show only the head created when pressed; holding a key does not create repeated heads. Scratch display and actual input records stay unchanged.
+### Optional: choose how input notes look
+
+In 0.2.0, **Input note appearance → Show key note bodies** switches between continuous trails and heads only. With bodies on, a key note extends for the press duration. With bodies off, keys 1–7 show only the head created when pressed; holding a key does not create repeated heads. Scratch display and actual input records stay unchanged.
 
 With bodies on, **Shorten brief inputs** can shorten released inputs below the **Time threshold**. **Length to keep** is the percentage that remains: 200 ms and 70% displays an input shorter than 200 ms at 70% of its original length, rather than removing 70%. Inputs at or above the threshold and keys still held are not shortened.
 
@@ -148,9 +151,12 @@ First check that the steps above work. You can then have OBS start the input dis
 
 If OBS starts the input display, closing that OBS also stops the display. If Lift Trace was already running before OBS opened, closing OBS leaves it running. Detailed settings are in the [technical reference](REFERENCE.en.md#optional-obs-startup-settings).
 
-## Optional: INFINITAS automatic visibility (unreleased)
+<a id="optional-infinitas-automatic-visibility-unreleased"></a>
+<a id="optional-automatic-visibility"></a>
 
-This section describes an **experimental feature in the current development source**. It is not in the public v0.1.0 ZIP. You can continue using the existing manual overlay. Windows app builds containing automatic visibility bundle its libraries; source users should follow the [development guide](DEVELOPMENT.en.md).
+## Optional: INFINITAS automatic visibility (experimental)
+
+This section describes an **optional experimental feature included in 0.2.0**. You can continue using the manual overlay on its own; no separate Core or remote control is required. The Windows app bundles the required libraries; source users should follow the [development guide](DEVELOPMENT.en.md).
 
 Show cameras, the overlay and a duplicated gauge together while the play UI is visible. **An INFINITAS detection reference is included; no play-screen registration is needed.**
 

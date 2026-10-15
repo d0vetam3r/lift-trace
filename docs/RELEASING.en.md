@@ -15,7 +15,7 @@ Maintain **one source tree and two artifacts**: a ready-to-run Windows app for u
 | GitHub Actions | Run the configured tests and build steps, calculate hashes and save artifacts. A green run reports those checks; it does not decide whether the product is ready. |
 | AI assistant | Help prepare changes, run tools and draft notes within the maintainer's authorization. Describe observed results and gaps accurately; AI review does not stand in for human or hardware testing. |
 
-An authorized tool or workflow can create a release; a person does not have to upload every file by hand. The maintainer remains responsible for choosing what to publish. The current workflow stops at build artifacts, as described below.
+The maintainer chooses the version, release intent and notes on main. The release workflow then publishes automatically after tests, builds and draft verification pass. Uploading every file by hand is unnecessary; choosing what to publish remains the maintainer's responsibility.
 
 ## Prepare a version
 
@@ -24,7 +24,7 @@ An authorized tool or workflow can create a release; a person does not have to u
 3. Run the commands and relevant behavior checks in [Development](DEVELOPMENT.en.md). Update [Validation](VALIDATION.en.md) with the build tested, results and remaining gaps. Record which Windows/OBS versions and controllers were actually tested. Do not turn a target platform into an untested support claim or an AI review into a human review.
 4. Build the source ZIP and Windows ZIP from the same clean source revision. Use the pinned `requirements-build.txt` inside a dedicated build environment.
 
-Commit the final version, documentation and code before building. Use a tag named `vX.Y.Z`, such as `v0.1.0`, pointing to that exact tested commit. The tag, `package.json`, source ZIP and Windows package must describe the same revision and version. Record the commit and build run; do not combine a new source archive with an older executable.
+Commit the final version, documentation and code before building. The release workflow creates `vX.Y.Z` at the verified commit, so do not create the tag in advance. The tag, `package.json` and both ZIPs must identify the same code and version. Record the commit and build run; never combine new source with an older executable.
 
 Once a release is public, do not move its tag, overwrite its ZIPs, or replace its checksums with a different build. Fixes belong in a new version. Release-note wording may be clarified without replacing the published files. Tag protection rules could enforce this convention later; they are not currently configured as part of this workflow.
 
@@ -75,25 +75,17 @@ The automated smoke test covers a headless packaged server and OBS-helper owners
 
 ## GitHub workflow and publication
 
-The current `.github/workflows/verify.yml` has two paths:
+Ordinary verification uses `.github/workflows/verify.yml`; its Actions artifacts do not publish a release. Publication uses the separate `.github/workflows/release.yml`, named **Build and publish a release**.
 
-- **Push or pull request:** run Python/JavaScript tests on Windows and Ubuntu and build the source archive. The recorded 2026-10-12 push run passed all four test combinations; see [Validation](VALIDATION.en.md) for its commit and run.
-- **Manual “Run workflow”:** run those tests, then prepare the pinned runtime, build the Windows package with `--require-verified-runtime`, run the smoke check and upload the ZIPs and hashes as an Actions artifact. The Windows job was skipped in the recorded push run; that run did not build an executable.
+1. Prepare reviewed code, a stable version in `package.json`, the matching UI badge, a dated changelog and `docs/releases/<version>.md`. Put only the same version on one line in the required `.github/release-intent`, for example `0.2.0`. Development versions with suffixes are rejected.
+2. Merge these changes into `main`. A main push changing `package.json` or `.github/release-intent` starts the workflow. Alternatively choose **Actions → Build and publish a release → Run workflow → main**; there are no extra inputs. Other branches and forks cannot publish through this workflow.
+3. Test the selected commit in four combinations: Windows/Ubuntu and Python 3.10/3.13, with Python/JavaScript checks and source packaging. Only after all pass does the Windows job prepare the official runtime and a fresh build environment, then run the `--require-verified-runtime` build, smoke checks and distribution verification.
+4. The publication job downloads verified artifacts by ID from that same run. It attaches five files to a draft: source ZIP, Windows ZIP, each archive's `.sha256`, and `SHA256SUMS`. It verifies remote inventory, sizes and SHA-256 digests, rechecks that main still identifies the built commit, and verifies that `v<version>` directly identifies that exact commit before publishing and marking the release latest. If creating the new draft also creates its tag, the job verifies that tag without moving it.
 
-The workflow uses `contents: read`. **It does not create a draft release or publish a GitHub Release.** An Actions artifact is a build output attached to a workflow run, not the download offered under Releases.
+The version, release intent and notes express the maintainer's choice to publish. Starting this process authorizes automatic publication once all gates pass, so settle the scope and disclose remaining checks before starting. Tests/builds use `contents: read`; only publication gets `contents: write`, using the repository's `GITHUB_TOKEN`. No personal access token is needed, and fork pull-request code is not run with publication credentials.
 
-For publication, choose the tested source revision, create its version tag and draft a GitHub Release. Upload the two ZIPs and checksums as release **Assets**. Put the Windows ZIP first in the release text with the label **Windows app — no Python installation required**; identify the source ZIP separately as **For contributors**.
+## Failure and retries
 
-State the tested environments, known limitations and signing status in the release notes. Link to the validation record and keep any uncompleted checks marked as pending. The current app is an **unsigned prototype**; do not describe it as signed or ask users to disable Windows/antivirus protections. Do not treat a checksum alone as proof of publisher identity. If signing is added later, sign before generating final archive hashes and update the documentation.
+An existing release, including a draft, or an existing tag for the version causes failure; neither is reused or overwritten. A failure before remote state is created can be fixed and retried with the same version. A failure after creating a draft, assets or tag preserves that state: no automatic deletion, replacement or retagging occurs. The maintainer must inspect the cause and explicitly recover or choose a new version. Published assets and tags remain immutable.
 
-Review the draft's files, links and notes, then publish. Keep the download links in all three READMEs pointed at the latest release. Never upload only GitHub's automatically generated source archives as the user installation route.
-
-## Possible next step: automate a draft release
-
-**This is a proposed extension, not configured behavior.** The intended sequence would be: the maintainer selects a trusted commit and version → Actions checks, builds and hashes that revision → Actions attaches the outputs to a draft release → the maintainer reviews real-use results, notes and files, then authorizes publication. Do not infer hardware compatibility, timing accuracy or natural wording from successful automation. Pending checks must remain visible in the release notes.
-
-If implemented, keep test/build jobs read-only and grant `contents: write` only to the job that creates the draft and attaches files. Use the repository's built-in `GITHUB_TOKEN`; this design does not need a personal access token. GitHub documents the [release permission](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions) and [job-level token permissions](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token#modifying-the-permissions-for-the-github_token).
-
-Run the release job only for a maintainer-selected, trusted repository reference. Do not execute fork pull-request code with release credentials or pass secrets into it. Keep the release inputs tied to the reviewed commit, not an arbitrary branch name or an artifact supplied by an untrusted pull request. This follows GitHub's [fork-workflow credential boundary](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflows-in-forked-repositories).
-
-Automation and AI assistance do not provide a security audit or legal certification. Hashes detect changed files but do not establish publisher identity, and this app is currently unsigned. Physical-controller tests, game/OBS timing checks and review by readers of each language remain separate responsibilities; record their actual scope in [Validation](VALIDATION.en.md).
+Put **Windows app — no Python installation required** first in the release notes, identify the source ZIP as for contributors and link the checksums. State tested environments, remaining checks, unsigned prototype status and AI involvement, linking [Validation](VALIDATION.en.md). Successful automation does not establish physical-controller compatibility, game timing, installation on another PC or human language review. Hashes detect changed files; they do not establish publisher identity. Keep all three README download links pointing to the latest release.
