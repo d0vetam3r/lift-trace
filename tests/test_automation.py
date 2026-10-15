@@ -107,8 +107,18 @@ class AutomationTests(unittest.TestCase):
         self.automation = Automation(self.root, **self.factories)
 
     def tearDown(self):
-        self.automation.close()
+        self.close_automation(self.automation)
         self.temporary.cleanup()
+
+    def close_automation(self, automation):
+        automation.close()
+        # Runtime close deliberately bounds disk waiting to 0.2s. This fixture
+        # owns the directory, so no writer may remain when cleanup removes it.
+        writer = automation._log_thread
+        if writer is not None:
+            writer.join(timeout=5)
+            self.assertFalse(writer.is_alive(), "Fixture event writer did not stop after close")
+        self.assertEqual(automation._log_queue.unfinished_tasks, 0)
 
     def ready(self):
         self.automation.connect({"port": 4455, "password": "private-test-password"})
@@ -146,7 +156,7 @@ class AutomationTests(unittest.TestCase):
             self.assertEqual(reloaded.status()["referenceSource"], "custom")
             self.assertEqual(len(self.connections), count)
         finally:
-            reloaded.close()
+            self.close_automation(reloaded)
 
     def test_missing_optional_dependencies_leave_core_manager_available_without_connecting(self):
         import builtins
@@ -166,7 +176,7 @@ class AutomationTests(unittest.TestCase):
                 unavailable.connect({})
             self.assertEqual(caught.exception.code, "automation-unavailable")
         finally:
-            unavailable.close()
+            self.close_automation(unavailable)
 
     def test_configuration_rejects_capture_target_duplicate_group_and_replaced_source(self):
         connection = self.ready()
@@ -698,7 +708,7 @@ class AutomationTests(unittest.TestCase):
             self.assertEqual(reloaded.status()["referenceSource"], "custom")
             self.assertFalse(reloaded.status()["connected"])
         finally:
-            reloaded.close()
+            self.close_automation(reloaded)
 
     def test_capture_change_removes_custom_and_falls_back_to_builtin(self):
         write_template(self.automation.default_template_path)
