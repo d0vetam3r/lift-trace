@@ -50,6 +50,20 @@ Start with [troubleshooting](docs/USER_GUIDE.en.md#troubleshooting). If it does 
 
 The Windows app is an **unsigned prototype**. See [validation status](docs/VALIDATION.en.md) for tested environments and checks still pending, and [security and local data](SECURITY.en.md) before sharing logs.
 
+## Related projects and long-term direction
+
+Lift Trace provides input visualization within a **modular ecosystem of tools for INFINITAS streaming**. Each project has its own repository and runs as a separate application or service, with optional integration for the features you need.
+
+| Project | Responsibility | Current availability |
+| --- | --- | --- |
+| [Lift Trace](https://github.com/d0vetam3r/lift-trace) | Actual input visualization and optional gameplay detection and automatic overlay visibility | Public · MIT |
+| [INFINITAS Live Core](https://github.com/d0vetam3r/infinitas-live-core) | OBS clip buffering and saving, song recognition, microphone control and a local API | Private |
+| [INFINITAS Remote](https://github.com/d0vetam3r/infinitas-remote) | iPad web remote, key input, Core status display, and save and microphone requests | Private |
+
+**Lift Trace runs independently without Core or Remote.** When integrated, Core's OBS adapter observes overlay visibility, and Remote's PC server calls Core's local HTTP API. Lift Trace does not call Core or require the other projects to be installed or running. Remote's key input, button configuration and recommendations also work without Core; only clip saving, song-title display and OBS microphone control require it. Neither companion project is bundled with Lift Trace.
+
+The long-term goal is a **modular open-source ecosystem for INFINITAS streaming**, preserving independent operation and optional integration. Lift Trace is currently the only open-source project. Live Core and Remote remain private; any future publication requires a separate decision after reviewing licenses and the distribution rights for included assets. Private repository links are accessible only to authorized accounts.
+
 ## Development and project information
 
 The Windows app and source ZIP come from the same project. Clone this repository or download `lift-trace-source-*.zip` to contribute; the Windows ZIP above is the ready-to-run app.
