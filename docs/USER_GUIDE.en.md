@@ -154,14 +154,18 @@ Show cameras, the overlay and a duplicated gauge together while the play UI is v
 
 Reopening the settings page while connected restores actual names and your saved selection without stopping running automation. If you change names or items in OBS, click **Refresh list** to check them again.
 
-**Stop automatic visibility** leaves current visibility unchanged; you can then use OBS's eye icons. An OBS disconnect or scene-collection change stops automation. Reconnect, review and save the selection, then start explicitly; there is no automatic retry. **Start automatic visibility manually after each new Lift Trace launch too.**
+**Stop automatic visibility** leaves current visibility unchanged; you can then use OBS eye icons. An OBS disconnect or scene-collection change requires reconnecting, reviewing and saving the selection, then starting explicitly. Runtime failures are not automatically retried. Fresh installations and ordinary launches require manual start; the optional [OBS startup preference](REFERENCE.en.md#saved-automation-startup) can enable it for an OBS-owned server.
+
+A late but validly classified screen is discarded while the next screen is awaited. Brief capture stalls retain already visible items. Beyond 2 seconds, processing resumes by hiding items and waits for a confirmed non-play screen, such as selection or results, before the next gameplay entry. The controller itself remains running during this recovery. A previously confirmed BPM-label region maintains play visibility when FULL COMBO changes the SCORE label.
 
 <details>
 <summary>Supported scope and additional guidance</summary>
 
-The current profile checks the SCORE region of an original 1920 × 1080 capture in the tested 1P layout, including pre-song play UI. 2P, DP, other layouts, resolutions and HDR have not been verified; BMS is not supported. Select 1–8 top-level items in one scene; groups and items inside nested scenes are outside the scope. Advanced Scene Switcher or other rules controlling the same items can issue conflicting visibility commands, so stop one controller. Lift Trace does not stop other programs automatically.
+The current profile confirms entry with SCORE and retains visibility with the BPM label in an original 1920 × 1080 capture of the tested 1P layout, including pre-song play UI. It does not read numeric BPM or song names. 2P, DP, other layouts, resolutions and HDR have not been verified; BMS is not supported. Select 1–8 top-level items in one scene; groups and items inside nested scenes are outside the scope. Advanced Scene Switcher or other rules controlling the same items can issue conflicting visibility commands, so stop one controller. Lift Trace does not stop other programs automatically.
 
 The OBS password and selection are stored in `automation.json` in the local data directory. A valid existing `automation-template.png` remains preferred; otherwise the included reference is used. These private files are excluded from ordinary **Export settings**. After updating into a new folder, reconnect, select and save targets, then start. No play-screen registration is needed. Do not attach private files to a repository or issue report.
+
+State transitions and capture-delay metadata are available in `automation-events.jsonl` and its previous `.1` file in the data directory. These diagnostic logs exclude screenshot pixels and the OBS password. Do not include unrelated logs or personal configuration files when sharing a report.
 
 </details>
 

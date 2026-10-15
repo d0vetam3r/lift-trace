@@ -6,9 +6,14 @@ Changes to the public overlay distribution are recorded here. Internal developme
 
 ## Unreleased
 
+- Retain a BPM-label reference in memory only after fresh SCORE confirmation, maintaining gameplay visibility during FULL COMBO. The secondary label cannot initiate a new play session and does not read numeric BPM or song names.
+- Discard late classified frames and keep polling. Brief stalls preserve visibility; stalls beyond 2 seconds hide items and require fresh non-gameplay confirmation before re-entry. Observe at most 5 Hz without changing input polling.
+- Record state transitions and bounded metadata with an asynchronous diagnostic writer. Bound queue, retention and shutdown wait; exclude passwords, pixels and exception messages.
+- Add an opt-in preference to start saved automatic visibility only on servers created by the OBS helper. Keep it off by default, preserve standalone servers/manual stops/existing errors, and require no Core installation.
+
 - Extract INFINITAS calculations while preserving existing settings and results. Connect optional experimental automatic visibility to the app, with local OBS WebSocket connection, target selection by actual scene/source names and manual start/stop. Bundle a 1080p SCORE detection reference so startup needs no screen registration; prefer a valid existing personal reference. Detection includes pre-song play UI in the tested 1P layout.
 - Add or exclude automation targets with checkboxes and distinguish duplicate source placements by upper/lower OBS list position. Reopening settings restores names and selections without stopping active automation. Reduce first-time setup to connect, save selection and start; collapse additional help and remove the separate start acknowledgement.
-- Leave automation off after app restart and stop it on OBS disconnect or scene-collection change. Keep the OBS password and personal local reference image outside ordinary settings export and distribution files. BMS and an external plugin loader are not implemented; this feature is not in public v0.1.0.
+- Leave automation off by default after app restart and stop it on OBS disconnect or scene-collection change. Keep the OBS password and personal local reference image outside ordinary settings export and distribution files. BMS and an external plugin loader are not implemented; this feature is not in public v0.1.0.
 - Reorganize the English, Korean and Japanese READMEs around an animated demonstration, Windows setup, features and task-based guide links.
 - Add an original synthetic demo rendered with the application's drawing code, with optional developer instructions for regenerating it.
 - Make Korean the default documentation language.

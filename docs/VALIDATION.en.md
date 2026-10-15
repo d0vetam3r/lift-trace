@@ -6,6 +6,12 @@
 
 This record separates evidence for the **public 0.1.0 prototype and unreleased development source**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
 
+## 2026-10-15: automatic-visibility source checks
+
+The contribution source was reviewed for SCORE entry and BPM-label retention, discarded late frames with a 2-second grace and non-play rearming, 5 Hz observation, bounded diagnostics, and optional OBS-helper startup with server ownership preserved. On Windows, all 185 Python checks passed with Python 3.12.14 and all 77 JavaScript checks passed with Node.js 24.19.0. The Python suite includes 11 checks running the real PowerShell helper against isolated HTTP servers and synthetic parent processes. Other regressions use synthetic images, fake clocks and mocked OBS. These are source checks, not a new Windows executable build/validation or an actual OBS/game run.
+
+During earlier local troubleshooting, the user confirmed moving input overlays during gameplay and normal operation after changing the gauge in the options screen. Those are observations from that local setup. They are not a new game/OBS/controller run of this isolated contribution source and do not establish FULL COMBO coverage, sustained-load performance or reproducibility on another PC. Personal recordings, captures, OBS configuration and logs are excluded from the repository. The 2026-10-12/13 records below remain historical evidence for their stated source and packages.
+
 ## Unreleased: INFINITAS automatic visibility connected to the app
 
 On 2026-10-13, development source with local OBS connection, SCORE-region detection and target-selection UI was checked. The table separates the local `0.2.0-dev.1` package, `0.2.0-dev.2` UI source and subsequent `0.2.0-dev.3` bundled-reference source evidence. **Public v0.1.0 and its ZIPs are unchanged.**

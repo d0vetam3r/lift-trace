@@ -18,14 +18,19 @@ import tempfile
 import time
 from typing import Callable, Protocol
 
-from auto_visibility import Observation, PlayState
+from auto_visibility import CAPTURE_STALL_GRACE, TIME_EPSILON, Observation, PlayState
 from obs_connection import ObsRequestError
 
 
 SOURCE_SIZE = (1920, 1080)
 TEMPLATE_SIZE = (90, 20)
 SCORE_ROI = (170, 953, 260, 973)  # Pillow crop: left, top, right, bottom.
+BPM_LABEL_ROI = (1414, 998, 1469, 1013)  # Fixed BPM label, excluding changing digits.
 MATCH_THRESHOLD = 0.99
+# Match the default visibility confirmation/freshness window. The secondary
+# label can retain confirmed gameplay, never substitute for SCORE entry.
+MARKER_CONFIRMATION = 0.2
+MARKER_MAX_AGE = 0.5
 MAX_SCREENSHOT_BYTES = 16 * 1024 * 1024
 MAX_TEMPLATE_BYTES = 256 * 1024
 PNG_PREFIX = "data:image/png;base64,"
@@ -75,8 +80,11 @@ def _screenshot_image(response: dict):
 def _request_screenshot(connection: Connection, source_uuid: str) -> dict:
     # Omitting imageWidth/imageHeight is essential: scaling would conceal an
     # unsupported source size while moving the fixed SCORE crop.
+    # PNG stays lossless; lighter compression avoids spending the observation
+    # freshness budget encoding pixels that are only transferred over loopback.
     return connection.request("GetSourceScreenshot", {
         "sourceUuid": source_uuid, "imageFormat": "png",
+        "imageCompressionQuality": 80,
     })
 
 
@@ -125,6 +133,14 @@ class InfinitasDetector:
         self._reference: bytes | None = None
         self._reference_norm = 0.0
         self._generation = 0
+        self._clear_playing_marker()
+
+    def _clear_playing_marker(self) -> None:
+        self._bpm_reference: bytes | None = None
+        self._bpm_reference_norm = 0.0
+        self._score_since: float | None = None
+        self._score_last: float | None = None
+        self._marker_last: float | None = None
 
     def start(self) -> None:
         self.stop()
@@ -138,12 +154,14 @@ class InfinitasDetector:
         reference = self._reference
         generation = self._generation
         if reference is None:
+            self._clear_playing_marker()
             return Observation(PlayState.UNKNOWN, observed_at)
         # Transport/request failures must reach the connection supervisor. Do
         # not turn a disconnected OBS into an ordinary unrecognized screenshot.
         try:
             response = _request_screenshot(self.connection, self.source_uuid)
         except ObsRequestError as error:
+            self._clear_playing_marker()
             # obs-websocket uses 702 for screenshot render/encode failure,
             # including sources with no frame yet. Missing sources and all
             # other rejected requests still require supervisor intervention.
@@ -151,21 +169,69 @@ class InfinitasDetector:
                 raise
             self.last_error = "capture-unavailable"
             return Observation(PlayState.UNKNOWN, observed_at)
+        except Exception:
+            self._clear_playing_marker()
+            raise
         finally:
             self.capture_latency = max(0.0, self.clock() - observed_at)
         if generation != self._generation:
+            self._clear_playing_marker()
             return Observation(PlayState.UNKNOWN, observed_at)
         try:
             with _screenshot_image(response) as image:
                 with image.crop(SCORE_ROI) as crop:
                     score = _score(crop.tobytes(), reference, self._reference_norm)
+                with image.crop(BPM_LABEL_ROI) as crop:
+                    try:
+                        marker = _template_vector(crop)
+                    except InvalidImage:
+                        marker = None
         except InvalidImage:
+            self._clear_playing_marker()
             self.last_error = "invalid-screenshot"
             return Observation(PlayState.UNKNOWN, observed_at)
+        except Exception:
+            self._clear_playing_marker()
+            raise
         if generation != self._generation:
+            self._clear_playing_marker()
             return Observation(PlayState.UNKNOWN, observed_at)
         self.last_score = score
         state = PlayState.PLAYING if score > MATCH_THRESHOLD else PlayState.NOT_PLAYING
+        now = self.clock()
+        fresh = (math.isfinite(observed_at) and math.isfinite(now)
+                 and 0 <= now - observed_at <= MARKER_MAX_AGE)
+        if (not math.isfinite(observed_at) or not math.isfinite(now) or now < observed_at
+                or (self._marker_last is not None and
+                    (observed_at < self._marker_last
+                     or now - self._marker_last > CAPTURE_STALL_GRACE + TIME_EPSILON))):
+            self._clear_playing_marker()
+        if marker is None:
+            self._clear_playing_marker()
+        elif not fresh:
+            # A late frame cannot teach or refresh a marker, or use one to
+            # classify gameplay. Preserve only an already confirmed reference
+            # within the same bounded grace as visibility recovery. Fresh
+            # frames can then recognize FULL COMBO after a short capture stall.
+            self._score_since = self._score_last = None
+        elif state is PlayState.PLAYING:
+            self._marker_last = observed_at
+            if (self._score_last is None or observed_at < self._score_last
+                    or observed_at - self._score_last > MARKER_MAX_AGE):
+                self._score_since = observed_at
+            self._score_last = observed_at
+            if (self._bpm_reference is None and
+                    observed_at - self._score_since + TIME_EPSILON >= MARKER_CONFIRMATION):
+                self._bpm_reference = marker
+                self._bpm_reference_norm = math.sqrt(sum(value * value for value in marker))
+        else:
+            self._score_since = self._score_last = None
+            if (self._bpm_reference is not None and
+                    _score(marker, self._bpm_reference, self._bpm_reference_norm) > MATCH_THRESHOLD):
+                state = PlayState.PLAYING
+                self._marker_last = observed_at
+            else:
+                self._clear_playing_marker()
         return Observation(state, observed_at)
 
     def stop(self) -> None:
@@ -173,6 +239,7 @@ class InfinitasDetector:
         self._generation += 1
         self._reference = None
         self._reference_norm = 0.0
+        self._clear_playing_marker()
         self.last_score, self.capture_latency, self.last_error = None, None, None
 
 

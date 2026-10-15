@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from io import BytesIO
 import json
 import queue
 import threading
@@ -96,6 +97,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(options["http_no_proxy"], ["127.0.0.1"])
         self.assertEqual(options["redirect_limit"], 0)
         self.assertTrue(options["enable_multithread"])
+        self.assertTrue(options["skip_utf8_validation"])
         self.assertEqual(self.socket.sent[0], {"op": 1, "d": {"rpcVersion": 1, "eventSubscriptions": 3}})
 
     def test_v5_authentication_uses_salt_then_challenge_without_sending_password(self):
@@ -249,6 +251,56 @@ class ConnectionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.connection.request("GetVersion", {"bad": float("nan")})
         self.assertTrue(self.connection.connected)
+
+
+class TextFrameTests(unittest.TestCase):
+    """Exercise websocket-client's real frame parser without a network socket."""
+
+    def socket_for(self, *frames):
+        import websocket
+
+        connection = websocket.WebSocket(skip_utf8_validation=True)
+        wire = BytesIO(b"".join(frame.format() for frame in frames))
+        connection.frame_buffer.recv = wire.read
+        return connection
+
+    @staticmethod
+    def frame(payload, *, fin=1, opcode=1):
+        import websocket
+
+        return websocket.ABNF(fin=fin, opcode=opcode, mask_value=0, data=payload)
+
+    def test_unicode_split_across_frames_is_strictly_decoded_after_reassembly(self):
+        text = json.dumps({"op": 7, "d": {"name": "선곡 昏き甲鉄のヴェルガ 🎵"}}, ensure_ascii=False)
+        payload = text.encode("utf-8")
+        split = payload.index("선".encode("utf-8")) + 1
+        connection = self.socket_for(self.frame(payload[:split], fin=0),
+                                     self.frame(payload[split:], opcode=0))
+        self.assertEqual(obs_connection._decode(connection.recv()), json.loads(text))
+
+    def test_malformed_utf8_text_is_rejected_even_without_duplicate_validation(self):
+        for invalid in (b"\xff", b"\xc0\xaf", b"\xe3\x81", b"\xed\xa0\x80"):
+            with self.subTest(invalid=invalid):
+                connection = self.socket_for(self.frame(b'{"op":7,"d":{"name":"' + invalid + b'"}}'))
+                with self.assertRaises(UnicodeDecodeError):
+                    connection.recv()
+
+    def test_large_ascii_response_skips_python_scan_but_retains_json_size_limit(self):
+        text = json.dumps({"op": 7, "d": {"imageData": "A" * (2 * 1024 * 1024)}})
+        connection = self.socket_for(self.frame(text.encode("ascii")))
+        with patch("websocket._abnf.validate_utf8", side_effect=AssertionError("Duplicate scan")):
+            decoded = connection.recv()
+        self.assertEqual(obs_connection._decode(decoded)["d"]["imageData"], "A" * (2 * 1024 * 1024))
+        with patch.object(obs_connection, "MAX_MESSAGE_BYTES", len(decoded) - 1):
+            with self.assertRaises(ObsConnectionError):
+                obs_connection._decode(decoded)
+
+    def test_close_with_invalid_reason_cannot_be_treated_as_an_obs_response(self):
+        connection = self.socket_for(self.frame(b"\x03\xe8\xff", opcode=8))
+        with patch.object(connection, "send_close") as close:
+            with self.assertRaises(ObsConnectionError):
+                obs_connection._decode(connection.recv())
+        close.assert_called_once_with()
 
 
 if __name__ == "__main__":

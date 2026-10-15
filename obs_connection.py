@@ -132,9 +132,13 @@ class ObsConnection:
                 generation = self._generation
             library = _websocket_module()
             self._timeout_errors = (TimeoutError, library.WebSocketTimeoutException)
+            # recv() still strictly decodes text as UTF-8. Avoid the library's
+            # duplicate Python scan of large screenshot payloads; bounded JSON
+            # validation and connection invalidation on CLOSE remain unchanged.
             ws = library.create_connection(
                 f"ws://127.0.0.1:{self.port}", timeout=self._remaining(deadline),
                 http_no_proxy=["127.0.0.1"], redirect_limit=0, enable_multithread=True,
+                skip_utf8_validation=True,
             )
             with self._condition:
                 if generation != self._generation:

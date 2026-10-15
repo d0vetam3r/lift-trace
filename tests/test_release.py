@@ -133,8 +133,10 @@ class ReleaseTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         rows = [json.loads(line) for line in result.stdout.splitlines()]
+        # Match the live policy regression: the 0.6s sampling gap at t=2 is
+        # within the existing 2s capture-stall grace and must not hide sources.
         self.assertEqual([(row["at"], row["applied"]) for row in rows if row["requests"]],
-                         [(0, False), (0.35, True), (1, False), (1.4, True), (2, False)])
+                         [(0, False), (0.35, True), (1, False), (1.4, True)])
         self.assertFalse(rows[-1]["running"])
         self.assertEqual(rows[-1]["requests"], [])
 

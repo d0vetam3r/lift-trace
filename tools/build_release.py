@@ -121,6 +121,7 @@ SOURCE_FILES = (
     "tests/test_auto_visibility.py",
     "tests/test_automation.py",
     "tests/test_obs_connection.py",
+    "tests/test_obs_bridge_autostart.py",
     "tests/test_infinitas_detector.py",
 )
 

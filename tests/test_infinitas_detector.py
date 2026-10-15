@@ -8,15 +8,15 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from PIL import Image
 
-from auto_visibility import PlayState
+from auto_visibility import CAPTURE_STALL_GRACE, PlayState, VisibilitySession
 from obs_connection import ObsRequestError
 from infinitas_detector import (
     InfinitasDetector, InvalidImage, MAX_SCREENSHOT_BYTES, MAX_TEMPLATE_BYTES,
-    PNG_PREFIX, SCORE_ROI, SOURCE_SIZE, TEMPLATE_SIZE, capture_template,
+    BPM_LABEL_ROI, PNG_PREFIX, SCORE_ROI, SOURCE_SIZE, TEMPLATE_SIZE, capture_template,
 )
 
 
@@ -36,10 +36,14 @@ def pattern(inverted=False):
     return image
 
 
-def screenshot(inverted=False):
+def screenshot(inverted=False, marker=None):
     image = Image.new("RGB", SOURCE_SIZE, "black")
     with pattern(inverted) as crop:
         image.paste(crop, SCORE_ROI[:2])
+    if marker is not None:
+        left, top, right, bottom = BPM_LABEL_ROI
+        image.paste("white" if marker == "changed" else "black", BPM_LABEL_ROI)
+        image.paste("black" if marker == "changed" else "white", (left, top, left + 27, bottom))
     return png(image)
 
 
@@ -63,6 +67,10 @@ class InfinitasDetectorTests(unittest.TestCase):
     def setUpClass(cls):
         cls.positive = screenshot()
         cls.negative = screenshot(True)
+        cls.positive_marked = screenshot(marker="present")
+        cls.negative_marked = screenshot(True, marker="present")
+        cls.positive_changed_marker = screenshot(marker="changed")
+        cls.negative_changed_marker = screenshot(True, marker="changed")
 
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -83,6 +91,7 @@ class InfinitasDetectorTests(unittest.TestCase):
         self.assertAlmostEqual(self.detector.last_score, 1.0)
         self.assertEqual(self.connection.calls, [("GetSourceScreenshot", {
             "sourceUuid": "selected-source-uuid", "imageFormat": "png",
+            "imageCompressionQuality": 80,
         })])
         self.assertEqual(list(self.directory.iterdir()), [self.template])
         self.assertEqual(self.template.read_bytes(), before)
@@ -101,6 +110,204 @@ class InfinitasDetectorTests(unittest.TestCase):
             self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
         with patch("infinitas_detector._score", return_value=math.nextafter(0.99, 1.0)):
             self.assertEqual(self.detector.observe().state, PlayState.PLAYING)
+
+    def confirm_marker(self):
+        self.detector.start()
+        self.connection.result = response(self.positive_marked)
+        self.detector.observe()
+        self.now += .25
+        self.assertEqual(self.detector.observe().state, PlayState.PLAYING)
+
+    def test_confirmed_marker_retains_full_combo_then_clears_on_screen_transition(self):
+        self.confirm_marker()
+        self.connection.result = response(self.negative_marked)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.PLAYING)
+        self.assertAlmostEqual(self.detector.last_score, .4)  # SCORE itself is still measured unchanged.
+        self.connection.result = response(self.negative)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+        self.connection.result = response(self.negative_marked)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+        self.assertEqual(len(self.connection.calls), 5)  # One capture per observation, no marker I/O.
+        self.assertEqual(list(self.directory.iterdir()), [self.template])
+
+    def test_single_score_frame_then_marker_only_cannot_complete_visibility_entry(self):
+        output = Mock()
+        session = VisibilitySession(self.detector, output, clock=lambda: self.now)
+        session.start()
+        self.connection.result = response(self.positive_marked)
+        self.assertFalse(session.tick().applied)
+        self.connection.result = response(self.negative_marked)
+        for gap in (.25, .25, .25):
+            self.now += gap
+            self.assertFalse(session.tick().applied)
+        self.assertEqual([item.args for item in output.set_visible.call_args_list], [(False,)])
+
+    def test_marker_reference_stays_fixed_after_confirmation(self):
+        self.confirm_marker()
+        self.connection.result = response(self.positive_changed_marker)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.PLAYING)
+        self.connection.result = response(self.negative_changed_marker)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+
+    def test_constant_marker_cannot_be_learned_or_retain_an_old_reference(self):
+        self.detector.start()
+        self.detector.observe()
+        self.now += .25
+        self.detector.observe()
+        self.connection.result = response(self.negative_marked)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+        self.confirm_marker()
+        self.connection.result = response(self.positive)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.PLAYING)
+        self.connection.result = response(self.negative_marked)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+
+    def test_marker_match_keeps_the_same_strict_threshold(self):
+        for marker_score, expected in ((.99, PlayState.NOT_PLAYING),
+                                       (math.nextafter(.99, 1), PlayState.PLAYING)):
+            with self.subTest(marker_score=marker_score):
+                self.confirm_marker()
+                self.connection.result = response(self.negative_marked)
+                self.now += .1
+                with patch("infinitas_detector._score", side_effect=[.4, marker_score]):
+                    self.assertEqual(self.detector.observe().state, expected)
+
+    def test_short_gaps_preserve_confirmed_marker_but_long_gaps_and_reversal_clear_it(self):
+        for gap, expected in ((.6, PlayState.PLAYING), (1.4, PlayState.PLAYING),
+                              (CAPTURE_STALL_GRACE + .01, PlayState.NOT_PLAYING),
+                              (-.1, PlayState.NOT_PLAYING)):
+            with self.subTest(gap=gap):
+                self.confirm_marker()
+                self.connection.result = response(self.negative_marked)
+                self.now += gap
+                self.assertEqual(self.detector.observe().state, expected)
+
+    def test_stale_frame_neither_uses_nor_refreshes_a_confirmed_marker(self):
+        self.confirm_marker()
+        last_fresh = self.now
+        self.connection.result = response(self.negative_marked)
+        self.now += .1
+        self.connection.on_request = lambda: setattr(self, "now", self.now + 1.4)
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+        self.assertEqual(self.detector._marker_last, last_fresh)
+        self.connection.on_request = None
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.PLAYING)
+
+    def test_repeated_stale_frames_cannot_extend_marker_grace(self):
+        self.confirm_marker()
+        last_fresh = self.now
+        self.connection.result = response(self.negative_marked)
+        self.connection.on_request = lambda: setattr(self, "now", self.now + .75)
+        for _ in range(2):
+            self.now += .1
+            self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+            self.assertEqual(self.detector._marker_last, last_fresh)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+        self.assertIsNone(self.detector._bpm_reference)
+        self.connection.on_request = None
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+
+    def test_stale_score_cannot_teach_or_complete_marker_confirmation(self):
+        self.detector.start()
+        self.connection.result = response(self.positive_marked)
+        self.detector.observe()
+        self.now += .1
+        self.connection.on_request = lambda: setattr(self, "now", self.now + .75)
+        self.detector.observe()
+        self.assertIsNone(self.detector._bpm_reference)
+        self.connection.on_request = None
+        self.now += .1
+        self.detector.observe()
+        self.connection.result = response(self.negative_marked)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+
+    def test_late_changed_marker_cannot_replace_an_already_confirmed_reference(self):
+        self.confirm_marker()
+        self.connection.result = response(self.positive_changed_marker)
+        self.now += .1
+        self.connection.on_request = lambda: setattr(self, "now", self.now + .75)
+        self.detector.observe()
+        self.connection.on_request = None
+        self.connection.result = response(self.negative_marked)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.PLAYING)
+
+    def test_full_combo_survives_slow_capture_and_sampling_gap_without_visibility_writes(self):
+        for mode in ("stale", "sampling-gap"):
+            with self.subTest(mode=mode):
+                output = Mock()
+                session = VisibilitySession(self.detector, output, clock=lambda: self.now)
+                session.start()
+                self.connection.result = response(self.positive_marked)
+                session.tick()
+                self.now += .25
+                self.assertTrue(session.tick().applied)
+                original_calls = list(output.set_visible.call_args_list)
+                self.connection.result = response(self.negative_marked)
+                self.now += .1 if mode == "stale" else 1.4
+                if mode == "stale":
+                    self.connection.on_request = lambda: setattr(self, "now", self.now + 1.4)
+                status = session.tick()
+                self.assertTrue(status.applied)
+                self.assertIsNone(status.error)
+                self.connection.on_request = None
+                for _ in range(4):
+                    self.now += .2
+                    self.assertTrue(session.tick().applied)
+                self.assertEqual(output.set_visible.call_args_list, original_calls)
+                session.stop()
+
+    def test_sparse_score_frames_cannot_arm_marker(self):
+        self.detector.start()
+        self.connection.result = response(self.positive_marked)
+        self.detector.observe()
+        self.now += .6
+        self.detector.observe()
+        self.connection.result = response(self.negative_marked)
+        self.now += .1
+        self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+
+    def test_unknown_frames_and_transport_failures_clear_marker(self):
+        for result in ({}, ObsRequestError("GetSourceScreenshot", 702), ConnectionError("private")):
+            with self.subTest(result=type(result).__name__):
+                self.confirm_marker()
+                self.connection.result = result
+                self.now += .1
+                if isinstance(result, ConnectionError):
+                    with self.assertRaises(ConnectionError):
+                        self.detector.observe()
+                else:
+                    self.assertEqual(self.detector.observe().state, PlayState.UNKNOWN)
+                self.connection.result = response(self.negative_marked)
+                self.now += .1
+                self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
+
+    def test_stop_restart_and_inflight_generation_change_clear_marker(self):
+        for mode in ("stop", "restart", "inflight-stop"):
+            with self.subTest(mode=mode):
+                self.confirm_marker()
+                if mode == "inflight-stop":
+                    self.connection.on_request = self.detector.stop
+                    self.assertEqual(self.detector.observe().state, PlayState.UNKNOWN)
+                    self.connection.on_request = None
+                elif mode == "stop":
+                    self.detector.stop()
+                self.detector.start()
+                self.connection.result = response(self.negative_marked)
+                self.now += .1
+                self.assertEqual(self.detector.observe().state, PlayState.NOT_PLAYING)
 
     def test_timestamp_precedes_request_so_slow_capture_can_be_rejected_as_stale(self):
         self.detector.start()

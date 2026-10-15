@@ -5,14 +5,31 @@ app launch. Avoid having another controller change the same scene items.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import math
 import os
 from pathlib import Path
+import queue
 import threading
 import time
 
 from auto_visibility import ObsSceneItems, SceneItem, VisibilitySession
+
+
+DIAGNOSTIC_LOG_BYTES = 256 * 1024
+# Visibility classification needs a few samples per second; controller input is
+# polled independently. Never queue screenshots to catch up after a slow one.
+OBSERVATION_INTERVAL = 0.2
+_RECOVERY_STATES = ("waiting-for-frame", "waiting-for-not-playing")
+DIAGNOSTIC_LOG_QUEUE = 64
+_LOG_ERRORS = frozenset(("obs-connect-failed", "obs-request-failed", "obs-disconnected",
+                         "detector-failed", "automation-failed", "automation-stop-timeout",
+                         "detector-start-failed", "detector-stop-failed",
+                         "detector-observation-invalid", "obs-apply-failed"))
+_LOG_REASONS = frozenset(("observe-exception", "invalid-observation", "invalid-state",
+                          "invalid-timestamp", "nonfinite-timestamp", "timestamp-before-start",
+                          "future-timestamp", "stale-observation", "regressed-timestamp", "sampling-gap"))
 
 
 class AutomationError(ValueError):
@@ -76,6 +93,12 @@ class Automation:
                              (connection_factory, detector_factory, template_capture))
         self._operations = threading.RLock()
         self._state_lock = threading.Lock()
+        self._log_lock = threading.Lock()
+        self._log_queue = queue.Queue(maxsize=DIAGNOSTIC_LOG_QUEUE)
+        self._log_thread = None
+        self._log_closed = False
+        self._log_stop = threading.Event()
+        self._last_log_state = (False, False, None, None, "unknown", None, None, None)
         self._connection = None
         self._thread = None
         self._cancel = threading.Event()
@@ -85,7 +108,7 @@ class Automation:
         self._config = {"port": 4455, "sceneUuid": None, "captureItemId": None,
                         "captureSourceUuid": None, "targets": []}
         self._state = {"running": False, "state": "unknown", "applied": None,
-                       "error": None, "score": None, "connected": False}
+                       "error": None, "score": None, "connected": False, "diagnostic": None}
         self._load()
 
     def _load(self):
@@ -123,6 +146,8 @@ class Automation:
         with self._state_lock:
             connected = self._connection is not None and self._connection.connected
             state = {**self._state, "connected": connected}
+            if state["diagnostic"] is not None:
+                state["diagnostic"] = dict(state["diagnostic"])
             if self._state["connected"] and not connected and not state["error"]:
                 state["error"] = "obs-disconnected"
             config = {**self._config, "hasPassword": bool(self._password),
@@ -182,10 +207,12 @@ class Automation:
                     connection.close()
                 with self._state_lock:
                     self._state["error"] = "obs-connect-failed"
+                self._record_transition()
                 raise AutomationError("Could not connect to OBS or save its local connection settings.", "obs-connect-failed") from None
             self._connection = connection
             with self._state_lock:
                 self._state.update(connected=True, error=None, score=None)
+            self._record_transition()
             return {"status": self.status(), "scenes": catalog}
 
     def _items(self, connection, scene_uuid):
@@ -197,6 +224,7 @@ class Automation:
         self._disconnect()
         with self._state_lock:
             self._state["error"] = "obs-request-failed"
+        self._record_transition()
         raise AutomationError("OBS request failed. Reconnect before trying again.", "obs-request-failed") from None
 
     @staticmethod
@@ -277,6 +305,7 @@ class Automation:
                 raise AutomationError("Could not save local automation settings.") from None
             with self._state_lock:
                 self._state["error"] = None
+            self._record_transition()
             return {"status": self.status()}
 
     def template(self):
@@ -300,6 +329,7 @@ class Automation:
                 temporary.unlink(missing_ok=True)
             with self._state_lock:
                 self._state["error"] = None
+            self._record_transition()
             return {"status": self.status()}
 
     def start(self):
@@ -353,14 +383,138 @@ class Automation:
             self._thread.start()
             return {"status": self.status()}
 
-    def _publish(self, session, detector, error=None):
+    @staticmethod
+    def _diagnostic(session, detector):
+        def finite(value):
+            return value if type(value) in (int, float) and math.isfinite(value) else None
+
+        detector_error = getattr(detector, "last_error", None)
+        if detector_error not in (None, "capture-unavailable", "invalid-screenshot"):
+            detector_error = "detector-error"
+        return {"observationReason": session.observation_reason,
+                "observationAge": finite(session.observation_age),
+                "exceptionType": session.observation_exception_type,
+                "exceptionCode": session.observation_exception_code,
+                "captureLatency": finite(getattr(detector, "capture_latency", None)),
+                "detectorError": detector_error,
+                "recoveryState": getattr(session, "recovery_state", None)}
+
+    def _publish(self, session, detector, error=None, *, diagnostic=None, record=True):
         state = session.status()
         score = getattr(detector, "last_score", None)
         if type(score) not in (int, float) or not math.isfinite(score):
             score = None
         with self._state_lock:
             self._state.update(running=state.running, state=state.state.value,
-                               applied=state.applied, error=error or state.error, score=score)
+                               applied=state.applied, error=error or state.error, score=score,
+                               diagnostic=(self._diagnostic(session, detector)
+                                           if diagnostic is None else diagnostic))
+        if record:
+            self._record_transition()
+
+    def _record_transition(self):
+        """Best-effort bounded metadata only; normal observation ticks do no I/O."""
+        try:
+            with self._log_lock:
+                if not self._log_closed:
+                    self._queue_transition()
+        except Exception:
+            pass  # Even malformed optional metadata must not affect control.
+
+    def _queue_transition(self):
+        with self._state_lock:
+            state = dict(self._state)
+            diagnostic = dict(state["diagnostic"] or {})
+        error = state["error"]
+        if error is not None and error not in _LOG_ERRORS:
+            error = "other-error"
+        detector_error = diagnostic.get("detectorError")
+        if detector_error not in (None, "capture-unavailable", "invalid-screenshot", "detector-error"):
+            detector_error = "detector-error"
+        play_state = state["state"] if state["state"] in ("unknown", "playing", "not_playing") else "unknown"
+        applied = state["applied"] if type(state["applied"]) is bool else None
+        recovery = diagnostic.get("recoveryState")
+        recovery = recovery if recovery in _RECOVERY_STATES else None
+        delay_reason = diagnostic.get("observationReason")
+        delay_reason = delay_reason if delay_reason in ("stale-observation", "sampling-gap") else None
+        signature = (state["running"], state["connected"], error, detector_error, play_state, applied, recovery, delay_reason)
+        previous = self._last_log_state
+        if signature == previous:
+            return
+        # A failed/dropped record must not turn every subsequent tick into a retry.
+        self._last_log_state = signature
+        events = []
+        if signature[0] != previous[0]:
+            events.append("started" if signature[0] else "stopped")
+        if signature[1] != previous[1]:
+            events.append("connected" if signature[1] else "disconnected")
+        if signature[2] != previous[2]:
+            events.append("error" if error else "recovered")
+        elif signature[3] != previous[3]:
+            events.append("error" if detector_error else "recovered")
+        if signature[4:6] != previous[4:6]:
+            events.append("state-changed")
+        if signature[6:] != previous[6:]:
+            events.append("capture-delayed" if recovery or delay_reason else "capture-resumed")
+        reason = diagnostic.get("observationReason")
+        name = diagnostic.get("exceptionType")
+        code = diagnostic.get("exceptionCode")
+        clean = {"observationReason": reason if isinstance(reason, str) and reason in _LOG_REASONS else None,
+                 "exceptionType": (name if isinstance(name, str) and len(name) <= 80
+                                   and name.isascii() and name.isidentifier() else None),
+                 "exceptionCode": code if type(code) is int and 0 <= code <= 2147483647 else None,
+                 "detectorError": detector_error, "recoveryState": recovery}
+        for key in ("observationAge", "captureLatency"):
+            value = diagnostic.get(key)
+            clean[key] = value if type(value) in (int, float) and math.isfinite(value) else None
+        score = state["score"]
+        record = {"at": datetime.now(timezone.utc).isoformat(), "events": events,
+                  "running": bool(state["running"]), "connected": bool(state["connected"]),
+                  "state": play_state, "applied": applied,
+                  "score": score if type(score) in (int, float) and 0 <= score <= 1 else None,
+                  "error": error, "diagnostic": clean}
+        raw = (json.dumps(record, ensure_ascii=True, allow_nan=False, separators=(",", ":")) + "\n").encode("utf-8")
+        if len(raw) > DIAGNOSTIC_LOG_BYTES:
+            return
+        try:
+            self._log_queue.put_nowait(raw)
+        except queue.Full:
+            return  # Optional diagnostics must never block the observation loop.
+        if self._log_thread is None:
+            self._log_thread = threading.Thread(target=self._write_events, name="obs-event-log", daemon=True)
+            self._log_thread.start()
+
+    def _write_events(self):
+        while not self._log_stop.is_set() or not self._log_queue.empty():
+            try:
+                raw = self._log_queue.get(timeout=.1)
+            except queue.Empty:
+                continue
+            try:
+                self._append_event(raw)
+            except Exception:
+                pass  # Disk failures never become automation failures.
+            finally:
+                self._log_queue.task_done()
+
+    def _append_event(self, raw):
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        path = self.data_dir / "automation-events.jsonl"
+        if path.exists() and path.stat().st_size + len(raw) > DIAGNOSTIC_LOG_BYTES:
+            if path.stat().st_size <= DIAGNOSTIC_LOG_BYTES:
+                os.replace(path, self.data_dir / "automation-events.jsonl.1")
+            else:
+                # Only this logger's exact oversized/corrupt file is discarded.
+                path.write_bytes(b"")
+        with path.open("ab") as stream:
+            stream.write(raw)
+
+    def _close_event_log(self):
+        with self._log_lock:
+            self._log_closed = True
+            self._log_stop.set()
+        if self._log_thread is not None:
+            self._log_thread.join(timeout=.2)  # A blocked disk cannot delay shutdown indefinitely.
 
     def _run(self, session, detector, connection, cancel):
         failure = None
@@ -378,13 +532,18 @@ class Automation:
                                           (None, "capture-unavailable") else None)
                 if not connection.connected:
                     failure = "obs-disconnected"
-                self._publish(session, detector, failure)
+                # A terminal failure is logged after connection cleanup below;
+                # disk I/O must not delay shutting down a failed OBS session.
+                self._publish(session, detector, failure, record=not failure and state.running)
                 if failure or not state.running:
                     break
-                cancel.wait(max(0, 0.1 - (self.clock() - started)))
+                cancel.wait(max(0, OBSERVATION_INTERVAL - (self.clock() - started)))
         except Exception:
             failure = "automation-failed"
         finally:
+            # Detector.stop clears its live counters. Retain the final observation
+            # metadata for diagnosis after the worker has stopped.
+            diagnostic = self._diagnostic(session, detector)
             session.stop()
             if cancel.is_set() and failure is None:
                 session.error = None  # Cancellation is intentional, not a reconnect fault.
@@ -392,7 +551,7 @@ class Automation:
                 connection.close()
                 with self._state_lock:
                     self._state["connected"] = False
-            self._publish(session, detector, failure)
+            self._publish(session, detector, failure, diagnostic=diagnostic)
 
     def _stop(self):
         self._cancel.set()
@@ -422,3 +581,5 @@ class Automation:
                 # application shutdown bounded even if a detector fails to return.
                 with self._state_lock:
                     self._state.update(running=False, error="automation-stop-timeout")
+            self._record_transition()
+        self._close_event_log()
