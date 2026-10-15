@@ -20,11 +20,12 @@ import argparse,json,os,socket,time
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler,HTTPServer
 p=argparse.ArgumentParser();p.add_argument('--port',type=int);p.add_argument('--data-dir');a=p.parse_args()
-data=Path(a.data_dir);mode=json.loads((data/'fixture-mode.json').read_text())['mode'];calls=[]
+data=Path(a.data_dir);mode=json.loads((data/'fixture-mode.json').read_text())['mode']
 state={'available':True,'templateReady':True,'running':mode=='already-running','connected':mode=='already-running',
        'error':'detector-observation-invalid' if mode=='existing-error' else None,
        'config':{'sceneUuid':'scene','captureSourceUuid':'game','targets':[{'sceneItemId':1}]}}
-def wait_for_test_release():
+def wait_for_test_release(phase):
+ (data/'waiting-response').write_text(phase,encoding='utf-8')
  deadline=time.monotonic()+5
  while not (data/'release-response').exists() and time.monotonic()<deadline:time.sleep(.01)
 class Handler(BaseHTTPRequestHandler):
@@ -32,12 +33,14 @@ class Handler(BaseHTTPRequestHandler):
  def reply(self,value,code=200):
   raw=json.dumps(value).encode();self.send_response(code);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
  def record(self):
-  calls.append(self.command+' '+self.path);tmp=data/'calls.tmp';tmp.write_text(json.dumps(calls));tmp.replace(data/'calls.json')
+  # Replacing a file while the test reads it can fail on Windows. One HTTP
+  # worker appends complete records instead; readers ignore an unfinished line.
+  with (data/'calls.jsonl').open('a',encoding='utf-8') as log:log.write(json.dumps(self.command+' '+self.path)+'\n')
  def do_GET(self):
   self.record()
   if self.path=='/api/status':self.reply({'app':'lift-trace','apiVersion':1,'nativeSupported':True,'selectedDevice':0,'devices':[]})
   elif self.path=='/api/automation':
-   if mode=='owner-exit-before-start' and state['connected']:wait_for_test_release()
+   if mode=='owner-exit-before-start' and state['connected']:wait_for_test_release('connected-status')
    self.reply(state)
   elif self.path=='/api/settings':self.reply({})
   else:self.reply({},404)
@@ -45,7 +48,7 @@ class Handler(BaseHTTPRequestHandler):
   self.rfile.read(int(self.headers.get('Content-Length','0')));self.record()
   if self.path=='/api/automation/connect':
    if mode=='delayed-success':time.sleep(3.25)
-   if mode in ('owner-exit-connect','owner-exit-connect-failure'):wait_for_test_release()
+   if mode in ('owner-exit-connect','owner-exit-connect-failure'):wait_for_test_release('connect')
    if mode in ('connect-failure','owner-exit-connect-failure'):
     state['error']='obs-connect-failed';self.reply({'code':'obs-connect-failed','status':state},400)
    else:
@@ -100,7 +103,8 @@ class BridgeAutostartTests(unittest.TestCase):
 
     def calls(self):
         try:
-            return json.loads((self.data / "calls.json").read_text())
+            lines = (self.data / "calls.jsonl").read_text(encoding="utf-8").splitlines(keepends=True)
+            return [json.loads(line) for line in lines if line.endswith("\n")]
         except (OSError, ValueError):
             return []
 
@@ -110,9 +114,13 @@ class BridgeAutostartTests(unittest.TestCase):
             message = status.read_text(encoding="utf-8", errors="replace")[:2000]
         except OSError:
             message = "missing"
+        try:
+            phase = (self.data / "waiting-response").read_text(encoding="utf-8")
+        except OSError:
+            phase = None
         return {"mode": getattr(self, "mode", None), "bridgeStatus": message,
                 "helperExit": self.helper.poll() if self.helper is not None else None,
-                "ownerExit": self.owner.poll(), "recentCalls": self.calls()[-8:]}
+                "ownerExit": self.owner.poll(), "waitingResponse": phase, "recentCalls": self.calls()[-8:]}
 
     def wait_for(self, predicate, timeout=10, *, description="expected state"):
         deadline = time.monotonic() + timeout
@@ -228,27 +236,43 @@ class BridgeAutostartTests(unittest.TestCase):
 
     def check_owner_exit_during_autostart(self, mode, waiting_for):
         self.begin(mode)
-        self.wait_for(lambda: self.calls().count(waiting_for) >=
-                      (2 if mode == "owner-exit-before-start" else 1))
+        # A repeated initial GET is not proof that connect completed. The
+        # fixture signals the exact response gate from inside its state branch.
+        marker = self.data / "waiting-response"
+        self.wait_for(lambda: marker.read_text(encoding="utf-8") == waiting_for,
+                      description=f"blocked {waiting_for} response")
+        self.assertEqual(self.calls().count("POST /api/automation/connect"), 1, self.fixture_diagnostics())
         self.owner.terminate()
         self.owner.wait(timeout=3)
         # Release the exact outstanding response after the owner is gone, so
         # this regression does not depend on racing a fixed-duration sleep.
         (self.data / "release-response").touch()
         self.assertEqual(self.helper.wait(timeout=6), 0)
-        self.assertEqual(self.calls().count("POST /api/automation/connect"), 1)
-        self.assertNotIn("POST /api/automation/start", self.calls())
+        calls = self.calls()
+        self.assertEqual(calls.count("POST /api/automation/connect"), 1, self.fixture_diagnostics())
+        self.assertNotIn("POST /api/automation/start", calls, self.fixture_diagnostics())
         with self.assertRaises((OSError, http.client.HTTPException)):
             self.request()
 
     def test_owner_exit_during_connect_prevents_start_and_keeps_owned_cleanup(self):
-        self.check_owner_exit_during_autostart("owner-exit-connect", "POST /api/automation/connect")
+        self.check_owner_exit_during_autostart("owner-exit-connect", "connect")
 
     def test_owner_exit_during_failed_connect_prevents_retry(self):
-        self.check_owner_exit_during_autostart("owner-exit-connect-failure", "POST /api/automation/connect")
+        self.check_owner_exit_during_autostart("owner-exit-connect-failure", "connect")
 
     def test_owner_exit_during_final_status_read_prevents_start(self):
-        self.check_owner_exit_during_autostart("owner-exit-before-start", "GET /api/automation")
+        self.check_owner_exit_during_autostart("owner-exit-before-start", "connected-status")
+
+    def test_fixture_repeated_initial_status_reads_do_not_signal_connected_gate(self):
+        self.begin("owner-exit-before-start", existing=True)
+        self.assertEqual(self.helper.wait(timeout=5), 0)
+        # Hold the same read handle that previously prevented calls.tmp.replace
+        # on Windows. Both real HTTP requests must still record and complete.
+        with (self.data / "calls.jsonl").open("r", encoding="utf-8"):
+            for _ in range(2):
+                self.assertFalse(self.request("/api/automation")["connected"])
+        self.assertEqual(self.calls().count("GET /api/automation"), 2)
+        self.assertFalse((self.data / "waiting-response").exists())
 
     def tearDown(self):
         if self.owner.poll() is None:

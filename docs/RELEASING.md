@@ -78,7 +78,7 @@ Windows 빌드에는 PyInstaller를 사용합니다. 이는 배포 담당자가 
 일반 검증은 `.github/workflows/verify.yml`이 맡으며, 이 워크플로의 Actions 결과 파일만으로는 릴리스가 게시되지 않습니다. 공개는 별도의 `.github/workflows/release.yml`인 **Build and publish a release**가 맡습니다.
 
 1. 검토한 코드와 `package.json`의 정식 버전, 화면 버전, 날짜가 있는 변경 이력, `docs/releases/<version>.md`를 준비합니다. `.github/release-intent`에는 같은 버전만 한 줄로 적습니다. 예: `0.2.0`. 접미사가 붙은 개발 버전은 공개 대상으로 받지 않습니다.
-2. 이 변경을 `main`에 반영합니다. `package.json` 또는 `.github/release-intent`가 바뀐 main push가 실행을 시작합니다. 수동 실행은 **Actions → Build and publish a release → Run workflow → main**이며 추가 입력은 없습니다. 다른 브랜치와 포크에서는 공개 작업을 실행하지 않습니다.
+2. 이 변경을 `main`에 반영합니다. `package.json`, `.github/release-intent` 또는 릴리스 워크플로 자체가 바뀐 main push가 실행을 시작합니다. 워크플로 수정도 현재 버전의 검증을 다시 시작하며, 기존 릴리스·태그 보호는 그대로 적용됩니다. 수동 실행은 **Actions → Build and publish a release → Run workflow → main**이며 추가 입력은 없습니다. 다른 브랜치와 포크에서는 공개 작업을 실행하지 않습니다.
 3. 지정한 커밋으로 Windows·Ubuntu와 Python 3.10·3.13의 네 조합에서 Python·JavaScript 검사와 소스 패키징을 실행합니다. 모두 통과해야 Windows 작업이 공식 런타임과 새 빌드 환경을 준비하고, `--require-verified-runtime` 빌드·기본 실행 검사·배포 파일 검증을 진행합니다.
 4. 공개 작업은 같은 실행의 검증된 결과 파일 ID를 사용합니다. 소스 ZIP, Windows ZIP, 각각의 `.sha256`, `SHA256SUMS` 총 5개를 릴리스 초안에 올리고 원격 파일 목록·크기·SHA-256을 확인합니다. main이 빌드한 커밋 그대로인지 다시 확인하고 `v<version>` 태그가 그 커밋을 직접 가리키는지 검증한 뒤 공개하고 최신 릴리스로 지정합니다. 새 초안 생성 과정에서 태그가 생겼다면 정확한 커밋인지만 확인하며 옮기지 않습니다.
 

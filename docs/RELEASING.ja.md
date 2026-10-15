@@ -78,7 +78,7 @@ WindowsのビルドにはPyInstallerを使います。これは配布担当者�
 通常の検証は `.github/workflows/verify.yml` が担当し、そのActions成果物だけではリリースを公開しません。公開には別の `.github/workflows/release.yml`、表示名 **Build and publish a release** を使います。
 
 1. レビュー済みコード、`package.json` の正式バージョン、同じ画面表示、日付付き変更履歴、`docs/releases/<version>.md` を準備します。必須の `.github/release-intent` には同じバージョンだけを1行で書きます。例：`0.2.0`。接尾辞のある開発版は公開対象として受け付けません。
-2. この変更を `main` に反映します。`package.json` または `.github/release-intent` を変更するmainへのpushで実行します。手動の場合は **Actions → Build and publish a release → Run workflow → main** を選びます。追加入力はありません。別ブランチやフォークからは公開しません。
+2. この変更を `main` に反映します。`package.json`、`.github/release-intent` またはリリースワークフロー自体を変更するmainへのpushで実行します。ワークフローの修正も現在のバージョンを再検証し、既存リリースとタグの保護は引き続き適用します。手動の場合は **Actions → Build and publish a release → Run workflow → main** を選びます。追加入力はありません。別ブランチやフォークからは公開しません。
 3. 指定コミットをWindows・UbuntuとPython 3.10・3.13の4通りで検査し、Python・JavaScriptテストとソースパッケージ作成を実行します。全件成功後にWindowsジョブが公式ランタイムと新しいビルド環境を準備し、`--require-verified-runtime` ビルド、起動検査、配布物の検証を行います。
 4. 公開ジョブは同じ実行の検証済み成果物をIDで取得します。ソースZIP、Windows ZIP、それぞれの `.sha256`、`SHA256SUMS` の計5ファイルを下書きに追加し、リモートのファイル一覧・サイズ・SHA-256を検証します。mainがビルドしたコミットのままか再確認し、`v<version>` タグがそのコミットを直接指すことを確かめてから公開し、最新リリースに設定します。新しい下書きの作成時にタグも生成された場合は、その一致を検査し、移動しません。
 
