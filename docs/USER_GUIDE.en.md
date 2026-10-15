@@ -170,7 +170,7 @@ Reopening the settings page while connected restores actual names and your saved
 
 **Stop automatic visibility** leaves current visibility unchanged; you can then use OBS eye icons. An OBS disconnect or scene-collection change requires reconnecting, reviewing and saving the selection, then starting explicitly. Runtime failures are not automatically retried. Fresh installations and ordinary launches require manual start; the optional [OBS startup preference](REFERENCE.en.md#saved-automation-startup) can enable it for an OBS-owned server.
 
-A late but validly classified screen is discarded while the next screen is awaited. Brief capture stalls retain already visible items. Beyond 2 seconds, processing resumes by hiding items and waits for a confirmed non-play screen, such as selection or results, before the next gameplay entry. The controller itself remains running during this recovery. A previously confirmed BPM-label region maintains play visibility when FULL COMBO changes the SCORE label.
+A late but validly classified screen is discarded while the next screen is awaited. OBS responses reporting that a screen is temporarily unavailable use the same recovery process. Brief capture delays or outages retain already visible items. Beyond 2 seconds, processing resumes by hiding items and waits for a confirmed non-play screen, such as selection or results, before the next gameplay entry. Returning to the same song alone does not count as a new play session. The controller itself remains running during this recovery. A previously confirmed BPM-label region maintains play visibility when FULL COMBO changes the SCORE label.
 
 <details>
 <summary>Supported scope and additional guidance</summary>

@@ -110,6 +110,76 @@ class VisibilityTests(unittest.TestCase):
         self.assertFalse(self.observe(2.15, PlayState.NOT_PLAYING).applied)
         self.assertIsNone(self.session.recovery_state)
 
+    def test_brief_unavailable_capture_does_not_flicker_or_complete_confirmation(self):
+        self.play()
+        original_writes = list(self.writes)
+        self.observe(.3, PlayState.NOT_PLAYING)
+        self.detector.last_error = "capture-unavailable"
+        self.assertTrue(self.observe(.5, PlayState.UNKNOWN).applied)
+        self.assertEqual(self.session.recovery_state, "waiting-for-frame")
+        self.detector.last_error = None
+        self.assertTrue(self.observe(.7, PlayState.NOT_PLAYING).applied)
+        self.assertTrue(self.observe(.9, PlayState.NOT_PLAYING).applied)
+        self.assertEqual(self.writes, original_writes)
+        self.assertFalse(self.observe(1.0, PlayState.NOT_PLAYING).applied)
+
+    def test_long_unavailable_capture_cannot_create_a_second_entry_in_the_same_song(self):
+        self.observe(0, PlayState.PLAYING)
+        self.observe(.2, PlayState.PLAYING)
+        self.detector.last_error = "capture-unavailable"
+        transitions = []
+        for index in range(1, 14):
+            at = .2 + index * .2
+            previous = self.session.applied
+            status = self.observe(at, PlayState.UNKNOWN)
+            self.assertTrue(status.running)
+            self.assertIsNone(status.error)
+            if previous != status.applied:
+                transitions.append((round(at, 2), status.applied))
+        self.assertEqual(transitions, [(2.4, False)])
+        self.detector.last_error = None
+        for at in (3.0, 3.2, 4.0):
+            self.assertFalse(self.observe(at, PlayState.PLAYING).applied)
+        self.assertEqual(self.session.recovery_state, "waiting-for-not-playing")
+        hidden_writes = list(self.writes)
+        self.observe(4.2, PlayState.NOT_PLAYING)
+        self.observe(4.5, PlayState.NOT_PLAYING)
+        self.assertIsNone(self.session.recovery_state)
+        self.assertFalse(self.observe(4.7, PlayState.PLAYING).applied)
+        self.assertTrue(self.observe(4.9, PlayState.PLAYING).applied)
+        self.assertEqual(self.writes, hidden_writes + [(2, True), (3, True)])
+
+    def test_unavailable_and_sparse_fresh_frames_share_one_recovery_budget(self):
+        self.play()
+        for at in (.4, 1.0, 1.6, 2.2):
+            self.detector.last_error = "capture-unavailable"
+            self.assertTrue(self.observe(at, PlayState.UNKNOWN).applied)
+            self.detector.last_error = None
+            status = self.observe(at + .1, PlayState.PLAYING)
+            self.assertEqual(status.applied, at < 2.2)
+        self.assertEqual(self.session.recovery_state, "waiting-for-not-playing")
+        self.assertFalse(self.observe(2.5, PlayState.PLAYING).applied)
+
+    def test_unknown_fallback_cannot_clear_an_unavailable_capture_recovery_budget(self):
+        self.play()
+        self.detector.last_error = "capture-unavailable"
+        self.assertTrue(self.observe(.4, PlayState.UNKNOWN).applied)
+        self.detector.last_error = None
+        self.assertFalse(self.observe(.6, PlayState.UNKNOWN).applied)
+        for at in (1.0, 1.4, 1.8, 2.2, 2.6):
+            self.assertFalse(self.observe(at, PlayState.UNKNOWN).applied)
+        self.assertEqual(self.session.recovery_state, "waiting-for-not-playing")
+        self.assertFalse(self.observe(2.8, PlayState.PLAYING).applied)
+        self.assertFalse(self.observe(3.0, PlayState.PLAYING).applied)
+
+    def test_unavailable_capture_does_not_complete_an_unconfirmed_entry(self):
+        self.assertFalse(self.observe(.1, PlayState.PLAYING).applied)
+        self.detector.last_error = "capture-unavailable"
+        self.assertFalse(self.observe(.3, PlayState.UNKNOWN).applied)
+        self.detector.last_error = None
+        self.assertFalse(self.observe(.4, PlayState.PLAYING).applied)
+        self.assertTrue(self.observe(.6, PlayState.PLAYING).applied)
+
     def test_stall_time_cannot_complete_entry_or_turn_on_a_cold_session(self):
         for initial_score in (False, True):
             with self.subTest(initial_score=initial_score):

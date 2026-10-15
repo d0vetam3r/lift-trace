@@ -638,20 +638,23 @@ class AutomationTests(unittest.TestCase):
                 if self.automation._log_thread is not None:
                     self.automation._log_thread.join(timeout=2)
 
-    def test_known_temporarily_unavailable_capture_hides_and_can_recover_without_reconnect(self):
+    def test_known_temporarily_unavailable_capture_recovers_without_flicker_or_reconnect(self):
         connection = self.ready()
         self.automation.start()
         self.wait_for(lambda: self.automation.status()["applied"] is True)
+        original_writes = self.writes(connection)
         detector = self.detectors[-1]
         detector.state, detector.last_error = PlayState.UNKNOWN, "capture-unavailable"
-        self.wait_for(lambda: self.automation.status()["applied"] is False)
+        self.wait_for(lambda: self.automation.status()["diagnostic"]["recoveryState"] == "waiting-for-frame")
         status = self.automation.status()
         self.assertTrue(status["running"])
-        self.assertEqual(status["state"], "unknown")
+        self.assertTrue(status["applied"])
+        self.assertEqual(status["state"], "playing")
         self.assertIsNone(status["error"])
         self.assertTrue(connection.connected)
         detector.state, detector.last_error = PlayState.PLAYING, None
-        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        self.wait_for(lambda: self.automation.status()["diagnostic"]["recoveryState"] is None)
+        self.assertEqual(self.writes(connection), original_writes)
         self.assertEqual(len(self.connections), 1)
 
     def test_partial_obs_failure_does_not_retry_or_claim_success(self):

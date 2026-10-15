@@ -382,6 +382,33 @@ class InfinitasDetectorTests(unittest.TestCase):
             with self.assertRaises(ObsRequestError):
                 self.detector.observe()
 
+    def test_screenshot_702_recovery_requires_a_real_exit_after_a_long_outage(self):
+        writes = []
+        output = Mock()
+        output.set_visible.side_effect = lambda visible: writes.append((round(self.now, 2), visible))
+        session = VisibilitySession(self.detector, output, clock=lambda: self.now)
+        session.start()
+        session.tick()
+        self.now = 10.2
+        self.assertTrue(session.tick().applied)
+        self.connection.result = ObsRequestError("GetSourceScreenshot", 702)
+        for index in range(1, 14):
+            self.now = 10.2 + index * .2
+            status = session.tick()
+            self.assertTrue(status.running)
+            self.assertIsNone(status.error)
+        self.connection.result = response(self.positive)
+        for self.now in (13.0, 13.2):
+            self.assertFalse(session.tick().applied)
+        self.assertEqual(writes, [(10.0, False), (10.2, True), (12.4, False)])
+        self.connection.result = response(self.negative)
+        for self.now in (13.4, 13.7):
+            self.assertFalse(session.tick().applied)
+        self.connection.result = response(self.positive)
+        for self.now in (13.9, 14.1):
+            session.tick()
+        self.assertEqual(writes[-1], (14.1, True))
+
     def test_wrong_size_is_unknown_instead_of_rescaling(self):
         self.detector.start()
         for size in ((960, 540), (1920, 1081), TEMPLATE_SIZE):
