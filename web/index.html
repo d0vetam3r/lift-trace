@@ -98,6 +98,39 @@
           <p class="field-help" data-i18n="obsPlacementUpdate">The size and position already set in OBS do not change automatically. Copy changed values into OBS again.</p>
           <button id="copy-url" class="primary wide" data-i18n="copyUrl">Copy address for OBS</button><div class="export-actions"><a id="overlay-link" href="/overlay.html" target="_blank" rel="noopener" data-i18n="openOverlay">Open overlay ↗</a><button id="export" class="quiet" data-i18n="exportSettings">Export settings</button><label class="import-label"><span data-i18n="importSettings">Import</span><input id="import" type="file" accept="application/json,.json" hidden></label></div><p id="save-status" class="field-help" aria-live="polite">Settings are saved automatically on this computer.</p>
         </section>
+        <details class="setting-section" id="auto-panel">
+          <summary data-auto-text="title">Show sources during INFINITAS play · experimental</summary>
+          <p class="field-help" data-auto-text="help"></p>
+          <div class="auto-step">
+          <h3 data-auto-text="connectionStep">1. Connect to OBS</h3>
+          <p class="field-help" data-auto-text="connectionHelp"></p>
+          <label><span data-auto-text="port">OBS WebSocket port</span><input id="auto-port" type="number" min="1" max="65535" value="4455"></label>
+          <label><span data-auto-text="password">Password</span><input id="auto-password" type="password" autocomplete="off"></label>
+          <button id="auto-connect" class="secondary wide" data-auto-text="connect">Connect to OBS</button>
+          </div>
+          <div class="auto-step">
+          <h3 data-auto-text="selectionStep">2. Choose sources</h3>
+          <label><span data-auto-text="scene">OBS scene</span><select id="auto-scene" aria-describedby="auto-scene-help"></select></label>
+          <p id="auto-scene-help" class="field-help" data-auto-text="sceneHelp"></p>
+          <label><span data-auto-text="capture">Source to read the game screen from</span><select id="auto-capture" aria-describedby="auto-capture-help"></select></label>
+          <p id="auto-capture-help" class="field-help" data-auto-text="captureHelp"></p>
+          <p class="auto-label" data-auto-text="targets">Sources to show and hide automatically</p>
+          <p class="field-help" data-auto-text="targetsHelp"></p>
+          <div id="auto-targets" class="auto-source-list"></div>
+          <p id="auto-duplicate-help" class="field-help" data-auto-text="duplicateHelp" hidden></p>
+          <p id="auto-edit-help" class="field-help" aria-live="polite"></p>
+          <div class="auto-selection-actions"><button id="auto-save" class="secondary" data-auto-text="save">Save selection</button><button id="auto-refresh" class="quiet" data-auto-text="refresh">Refresh list</button></div>
+          </div>
+          <div class="auto-step">
+          <h3 data-auto-text="startStep">3. Start automatic visibility</h3>
+          <p id="auto-reference-help" class="field-help"></p>
+          <button id="auto-start" class="primary wide" data-auto-text="start">Start automatic visibility</button>
+          <button id="auto-stop" class="secondary wide" data-auto-text="stop">Stop automatic visibility</button>
+          <p id="auto-status" class="field-help" role="status" aria-live="polite"></p>
+          <p class="field-help" data-auto-text="stopHelp"></p>
+          </div>
+          <details class="auto-extra"><summary data-auto-text="extraTitle">Supported setup and more help</summary><p class="field-help" data-auto-text="supported"></p><p class="field-help" data-auto-text="privacy"></p><p class="field-help" data-auto-text="competing"></p><p class="field-help" data-auto-text="reconnectHelp"></p></details>
+        </details>
       </aside>
     </div>
     <footer><span>LIFT TRACE <span class="muted" data-i18n="independent">/ independent input overlay prototype</span></span><span class="muted" data-i18n="noGameRead">Does not read game charts, judgments, or memory.</span></footer>
@@ -116,5 +149,6 @@
   </dialog>
   <div id="toast" class="toast" role="status" hidden></div>
   <script type="module" src="app.js"></script>
+  <script type="module" src="automation.js"></script>
 </body>
 </html>

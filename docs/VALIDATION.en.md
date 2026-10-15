@@ -4,7 +4,9 @@
 
 [Home](../README.en.md) · [User guide](USER_GUIDE.en.md) · [Development](DEVELOPMENT.en.md) · [Contributing](../CONTRIBUTING.en.md)
 
-This record separates dated validation of the **unreleased input note appearance features** from the existing **0.1.0 prototype** evidence. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
+This record separates evidence for the **public 0.1.0 prototype and unreleased development source**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
+
+The two 2026-10-15 feature records below describe separate contributions before integration. Their test counts and results do not establish validation of the combined source.
 
 ## 2026-10-15: input note appearance (unreleased)
 
@@ -21,6 +23,30 @@ An earlier browser check that day used a separate test data folder to verify bod
 After the latest saved-setting race fixes, browser automation exercised two tabs against an isolated source server. Applying bodies on and 70% in tab A updated tab B to 70%. While A held an unsaved 30% draft, applying 85% in B preserved A's 30% draft. Revert edits in A restored the latest saved 85%, and reloading A retained 85%. The browser console contained no errors or warnings. This verifies the ordinary two-tab interaction flow, not browser tests with artificially injected HTTP or SSE races.
 
 This update provides no new EXE, live-game, physical-controller or human language-review result. The runtime-provenance and 0.1.0 package records below remain evidence for the earlier build; they do not validate a Windows package containing the new features.
+
+## 2026-10-15: automatic-visibility source checks
+
+The contribution source was reviewed for SCORE entry and BPM-label retention, discarded late frames with a 2-second grace and non-play rearming, 5 Hz observation, bounded diagnostics, and optional OBS-helper startup with server ownership preserved. On Windows, all 185 Python checks passed with Python 3.12.14 and all 77 JavaScript checks passed with Node.js 24.19.0. The Python suite includes 11 checks running the real PowerShell helper against isolated HTTP servers and synthetic parent processes. Other regressions use synthetic images, fake clocks and mocked OBS. These are source checks, not a new Windows executable build/validation or an actual OBS/game run.
+
+During earlier local troubleshooting, the user confirmed moving input overlays during gameplay and normal operation after changing the gauge in the options screen. Those are observations from that local setup. They are not a new game/OBS/controller run of this isolated contribution source and do not establish FULL COMBO coverage, sustained-load performance or reproducibility on another PC. Personal recordings, captures, OBS configuration and logs are excluded from the repository. The 2026-10-12/13 records below remain historical evidence for their stated source and packages.
+
+## Unreleased: INFINITAS automatic visibility connected to the app
+
+On 2026-10-13, development source with local OBS connection, SCORE-region detection and target-selection UI was checked. The table separates the local `0.2.0-dev.1` package, `0.2.0-dev.2` UI source and subsequent `0.2.0-dev.3` bundled-reference source evidence. **Public v0.1.0 and its ZIPs are unchanged.**
+
+| Evidence | Observed result | Limits |
+| --- | --- | --- |
+| `0.2.0-dev.3` bundled-reference source and mocked UI | Python 130 and JavaScript 77 checks passed. Mocked APIs confirmed fresh setup through connect→save selection→start without a registration request. Existing personal references stayed preferred; disconnected state blocked start, and a missing reference showed fresh-extraction guidance. All three locales had no overflow or JavaScript errors at 390px and 1440px. | Not a new package build or actual OBS-control check. Local evidence: `bundled-reference-ui/result.json`. |
+| Offline recheck of the bundled SCORE reference | With the same 90 × 20 reference and current detector, 306 existing original screenshots yielded 7 play-UI detections (6 excluding the reference original) and no false positives among the other 299. The 24 extracted recording frames retained the previous 13 detected and 11 not detected classifications. | One 1P layout using material already involved in reference selection, not an independent accuracy estimate. Includes temporary entrance-animation misses; 2P, DP, HDR, other layouts and live gameplay remain unverified. The full continuous video was not rechecked. Local evidence: `bundled-reference-validation/result.json`. |
+| `0.2.0-dev.2` UI-source changes | Python 124 and JavaScript 77 checks passed. A mock manager confirmed catalog reads without stopping execution or writing settings. A headless browser with mocked APIs restored running selections and actual names using GET only, showed duplicate positions instead of internal IDs, completed stop→uncheck→save→start without acknowledgement, and required explicit scene/original selection on first connection. All three locales had no horizontal overflow at 390px or JavaScript errors. | Source and mocked UI checks, not a new `dev.2` ZIP build/run or actual OBS control. Local UI evidence: `automation-ux-review/result.json`. |
+| Local `0.2.0-dev.1` source and Windows ZIP | Python 120 and JavaScript 76 checks passed, and the build passed strict runtime-provenance verification. The extracted ZIP ran without external Python; `/api/automation` reported available and initially disconnected, and OBS-helper lifecycle checks passed. | Packaging and basic execution evidence for this build. Not a clean-PC, live-game, physical-device or actual OBS-rendering check. |
+| 24 still frames extracted from a recording | Recorded classification scores for the fixed 1080p SCORE region. Sampled play UI and result frames were distinguished; two entrance-animation samples temporarily classified as non-play. | Selected samples from one recording. This does not establish flicker suppression on continuous video or performance during actual gameplay. Detection includes pre-song play UI. |
+| Actual OBS 32.1.2 with recorded still frames | Confirmed play ON → result OFF → ON again, visibility retained on manual stop, fresh observation after restart, stopping without retry after connection failure, and result-screen OFF after explicit reconnect. Controlled two cameras, the overlay and the duplicated gauge while the original game and audio items stayed enabled. | Actual OBS requests and item states were checked. This was neither live gameplay nor continuous video playback, and did not assess audible output or physical camera image quality. |
+| `0.2.0-dev.1` headless browser with a mocked automation API | Confirmed connection, duplicate gauge selection by item ID, reference capture, start/stop, the then-current connection/acknowledgement button guards, password-field clearing and absence from browser storage. Korean/Japanese switching and text wrapping were checked; no JavaScript errors occurred. | UI requests and presentation were checked. This test itself did not exercise actual OBS or first-time-user usability. |
+
+Earlier local evidence is retained in `live-obs-results.json`, `recorded-frame-results.json`, `artifacts/ui-smoke/result.json` and UI screenshots. Personal recordings, personal references and OBS settings are excluded from public distribution. The bundled SCORE-label reference is a separate distribution asset. Synthetic-observation/mock-OBS policy tests and actual connection checks are separate evidence.
+
+These results do not establish sustained performance with the game, OBS and controller together, normal song completion and transitions, other layouts/2P, or final-package execution on a clean PC. BMS and an external plugin API/loader are not implemented. See the [user guide](USER_GUIDE.en.md#optional-infinitas-automatic-visibility-unreleased) and [Development](DEVELOPMENT.en.md) for setup, recovery and implementation scope.
 
 ## Runtime provenance checked
 

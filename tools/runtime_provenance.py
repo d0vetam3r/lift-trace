@@ -88,11 +88,14 @@ def checked_metadata(base: Path, pin: dict) -> tuple[dict, dict[str, Path]]:
     return sbom, paths
 
 
-def verify_runtime(base: Path, internal: Path | None = None, *, pin: dict | None = None) -> dict:
-    """Verify the extracted originals and every packaged DLL/PYD against that ZIP.
+def verify_runtime(base: Path, internal: Path | None = None, *, pin: dict | None = None,
+                   dependency_binaries: dict | None = None) -> dict:
+    """Verify originals and packaged Python DLL/PYD against the PSF ZIP.
 
     Added Python bytecode caches are ignored. Generated application
     bytecode and the PyInstaller bootloader are outside this runtime check.
+    Exact paths already verified against pinned dependency wheels are checked
+    again by hash and reported separately, never exempted by directory prefix.
     """
     pin = load_pin() if pin is None else pin
     base = Path(base).resolve()
@@ -116,7 +119,7 @@ def verify_runtime(base: Path, internal: Path | None = None, *, pin: dict | None
             if not path.is_symlink() and "__pycache__" in relative.parts and path.suffix == ".pyc":
                 continue
             raise RuntimeError(f"Unlisted file in official runtime: {relative.as_posix()}")
-    bundled = {}
+    bundled, dependency_files = {}, {}
     if internal is not None:
         internal = Path(internal).resolve()
         by_hash = {}
@@ -129,11 +132,20 @@ def verify_runtime(base: Path, internal: Path | None = None, *, pin: dict | None
             if path.is_symlink() or internal not in path.resolve().parents:
                 raise RuntimeError(f"Packaged binary escapes its directory: {path.name}")
             checksum = digest(path.read_bytes())
+            relative = path.relative_to(internal).as_posix()
+            dependency = (dependency_binaries or {}).get(relative)
+            if dependency is not None:
+                if checksum != dependency["sha256"]:
+                    raise RuntimeError(f"Packaged dependency changed after wheel verification: {relative}")
+                dependency_files[relative] = dependency
+                continue
             candidates = [name for name in by_hash.get(checksum, [])
                           if PurePosixPath(name).name.casefold() == path.name.casefold()]
             if not candidates:
                 raise RuntimeError(f"Packaged binary differs from the official runtime: {path.name}")
             bundled[path.relative_to(internal).as_posix()] = {"source": sorted(candidates)[0], "sha256": checksum}
+        if set(dependency_files) != set(dependency_binaries or {}):
+            raise RuntimeError("Verified packaged dependency binary disappeared")
         names = {Path(name).name.casefold() for name in bundled}
         if "libffi-8.dll" not in names or "_lzma.pyd" not in names:
             raise RuntimeError("Expected libffi and liblzma runtime binaries are missing")
@@ -141,4 +153,5 @@ def verify_runtime(base: Path, internal: Path | None = None, *, pin: dict | None
             "archive": pin["archive"], "manifest": pin["manifest"],
             "sbom": {**pin["sbom"], "packages": sbom["packages"]},
             "runtimeFiles": original, "bundledFiles": bundled,
-            "scope": "Pinned official distribution, extracted original files, and packaged DLL/PYD bytes; not an application quality or security certification"}
+            "separatelyVerifiedDependencyFiles": dependency_files,
+            "scope": "Pinned PSF distribution, extracted originals and packaged Python DLL/PYD bytes; exact wheel-verified dependency paths are reported separately; not an application quality or security certification"}

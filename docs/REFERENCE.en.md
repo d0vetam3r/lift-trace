@@ -140,6 +140,16 @@ Scripts belong to scene collections. Register it in each collection where it is 
 
 For failures, check `data/obs-bridge-*.status`, `data/obs-bridge-*.stdout.log`, `data/obs-bridge-*.stderr.log` and, for device selection, `data/obs-controller-*.log`. Desktop diagnostics use `data/lift-trace.log`, with a possible `%TEMP%/LiftTrace/` fallback when the app folder is unwritable. Remove private paths and device information before sharing excerpts.
 
+<a id="saved-automation-startup"></a>
+
+## Optional saved automatic-visibility startup
+
+First connect to OBS, save the targets and verify manual start in the settings page. Close OBS, create `obs-automation-autostart.json` in the helper data directory (normally `data/`), and save `{"enabled":true}` to opt in for the next OBS launch. A missing file or `false` leaves it disabled. Set `false` or remove only this preference file to disable future automatic starts; use Stop in settings to stop a running controller.
+
+The helper requests connection and start only for a server it just created with a ready saved selection and reference. It leaves reused standalone servers, already connected/running automation and existing errors alone. Only acknowledged connection failures during OBS startup receive up to three attempts; start is requested once. A timeout or lost response never authorizes a duplicate request. Failure leaves the input server running and writes guidance to `data/obs-automation-<port>.log`. Later manual stops and runtime failures do not trigger a restart.
+
+This is optional Lift Trace behavior without a Core, iPad remote or combined-launcher dependency. Standalone execution and server ownership stay unchanged. See [Development](DEVELOPMENT.en.md) for visibility recovery and `automation-events.jsonl` retention.
+
 ## Server ownership
 
 | Startup situation | Who stops the server? |

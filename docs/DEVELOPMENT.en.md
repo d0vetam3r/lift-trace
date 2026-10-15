@@ -16,7 +16,7 @@ Requirements:
 - **Node.js 18+** for JavaScript tests only.
 - Windows for native controller input and OBS automatic startup; OBS Studio for manual integration checks.
 
-There are no third-party Python or npm packages required to run the source application. From the source root:
+Existing controller input and the manual OBS overlay need no third-party Python or npm packages. For optional automatic visibility from source, first run `python -m pip install -r requirements-automation.txt` to install `websocket-client==1.9.2` and `Pillow==12.3.0`. Ordinary input and the manual overlay still work without these dependencies. Windows app builds bundle them; app users do not need an installation command. From the source root:
 
 ```sh
 python desktop.py
@@ -57,6 +57,12 @@ Some Python tests open temporary loopback listeners. A restricted environment mu
 | `server.py` | Loopback HTTP, SSE, settings and shared demo timing. |
 | `native_input.py` | Windows WinMM enumeration and controller polling. |
 | `web/engine.js` | Input history, scratch tracking and elapsed-time falling positions. |
+| `web/games/infinitas.js` | INFINITAS geometry, speed and OBS placement calculations for normalized settings. |
+| `auto_visibility.py` | Gameplay policy and adapter for selected OBS scene items. |
+| `automation.py`, `web/automation.js` | Explicit connection, target selection and start/stop UI; automation work separate from input polling. |
+| `obs_connection.py`, `infinitas_detector.py` | Local OBS WebSocket v5 connection and fixed INFINITAS SCORE-region detection. |
+| `assets/infinitas-score-1080p.png` | 90 × 20 SCORE reference, included in the source-distribution allowlist and Windows PyInstaller data. |
+| `tools/replay_visibility.py` | Replay synthetic observations through the visibility policy and print JSONL request records. |
 | `web/render.js` | Canvas renderer shared by preview and overlay. |
 | `web/client.js` | Server events, settings and input-mode coordination. |
 | `web/index.html`, `web/app.js` | Settings page, preview and guided setup UI. |
@@ -74,6 +80,38 @@ Some Python tests open temporary loopback listeners. A restricted environment mu
 | `tools/smoke_windows.py` | Extracted Windows ZIP startup and synthetic OBS-parent lifecycle checks. |
 
 The settings page is a client of the server, not the owner of native input polling. Closing a browser tab must not stop native input. The desktop manager and OBS helper own only the server processes they created; reuse never transfers shutdown ownership.
+
+## Optional INFINITAS automatic visibility
+
+The current development source connects a local OBS WebSocket client, target-selection UI and SCORE-region detector. This feature is not in public v0.1.0, and this change does not publish a new release. See the [user guide](USER_GUIDE.en.md#optional-infinitas-automatic-visibility-unreleased) for setup. INFINITAS geometry, speed and placement calculations live in `web/games/infinitas.js`; existing settings, function names and results are preserved.
+
+The first profile confirms entry using the SCORE region `(170, 953, 90, 20)` of an unscaled 1920 × 1080 original source. It uses bundled `assets/infinitas-score-1080p.png`, with a valid existing local reference preferred and never overwritten. After 0.2 seconds of fresh SCORE matches, it retains the fixed BPM-label region `(1414, 998, 55, 15)` in memory. That label can maintain already confirmed gameplay when FULL COMBO replaces SCORE; it cannot initiate a new play session. It does not read numeric BPM, song names or charts. Stop, mismatch, invalid images/timestamps, connection errors or an observation gap beyond 2 seconds clear the retained marker. Scope remains one tested 1P layout, including pre-song play UI, without guarantees for 2P, DP, arbitrary skins, resolutions or HDR. Screenshots and the BPM reference are not written to disk.
+
+`auto_visibility.py` is an internal experimental contract, not a stable third-party plugin API. The detector has `start()` / `observe()` / `stop()`; the session has `start()` / `tick()` / `stop()`. Observations carry a monotonic timestamp and `UNKNOWN` / `PLAYING` / `NOT_PLAYING`. By default, 0.2 seconds of gameplay enables selected items and 0.3 seconds of non-gameplay hides them. Observation requests run at most 5 Hz, one at a time, without queuing catch-up work. Native input polling is unchanged.
+
+An otherwise valid classified frame arriving more than 0.5 seconds late is discarded while polling continues. Confirmed visibility can survive up to 2 seconds from the last fresh observation, but the stall never counts toward entry or exit confirmation. Gaps between fresh frames use the same policy. On the first processing step beyond that grace, items are hidden; fresh non-gameplay must then be confirmed for 0.3 seconds before another gameplay entry. Synchronous capture can delay that check, so this is not a timer guaranteed to hide exactly at 2 seconds. Unknown states request hiding; malformed images/timestamps and connection/target failures retain their error handling. Manual `stop()` leaves current visibility unchanged.
+
+The OBS adapter controls 1–8 selected top-level items after checking scene UUID, scene item ID and source UUID. The original capture item stays visible and is excluded from targets. The UI displays actual OBS scene/source names, with upper/lower list-position labels for duplicate placements of one source. Internal identifiers remain in use for control but are not displayed. Checking or unchecking changes the automation target list without deleting OBS sources. Groups and nested scenes are outside the current scope. OBS requests are not an atomic batch: some items may change before a failure. Failure marks the applied state unknown and stops automation. Hiding cannot be guaranteed while OBS is disconnected.
+
+Reopening the page or refreshing the list uses `GET /api/automation/catalog` to restore actual names and the saved selection. This read neither stops automation nor reconnects. First-time setup is connect to OBS → select and save the scene, original and targets → start automatic visibility. Supported scope and competing-controller guidance belong in collapsed help.
+
+Capture and detection run on a worker separate from input polling. The OBS password and selection are stored in `automation.json` in the data directory; an existing personal reference is `automation-template.png`. The password and personal reference are excluded from general settings responses, events, settings export and public distribution. The bundled reference containing only the SCORE label is a separate distribution asset. The default `data/` directory is ignored by Git; do not commit a custom data directory either. This local file is not an encrypted password vault.
+
+Manual app launches and fresh installations require an explicit automatic-visibility start. The optional OBS-helper preference in the [reference](REFERENCE.en.md#saved-automation-startup) applies only to a server newly created by that helper. Core or a separate combined launcher is not required. There is no mandatory Advanced Scene Switcher acknowledgement or `exclusiveControl` start condition. Help explains conflicts with rules controlling the same items; the app does not stop other programs. A runtime disconnect or scene-collection change stops automation without automatic reconnect or replay. Reconnect, review and save the selection, then start again. The startup helper also respects a later manual stop.
+
+Visibility start/stop, connection, error/recovery and play/visibility transitions are recorded in `data/automation-events.jsonl` with UTC timestamps and bounded diagnostic metadata. Normal frames are not logged individually. Keep only the current file and one previous `.1`, at most 256 KiB each. A dedicated writer and 64-record queue separate disk work; full queues or write failures drop diagnostics without interrupting control. Shutdown waits at most 0.2 seconds for this writer. Logs exclude screenshot pixels, request/response bodies, passwords, exception messages and scene/song names. Other startup logs may contain personal paths, so inspect them before sharing.
+
+To inspect the policy from source without OBS, run:
+
+```sh
+python tools/replay_visibility.py
+```
+
+Synthetic observations and fake OBS responses produce results and requests as JSONL (one JSON object per line). This does not test image recognition or real OBS behavior. An optional argument accepts a JSON file containing an observation array.
+
+Automated tests, synthetic images, real OBS operation, simultaneous gameplay and packaged execution are separate evidence. Refer to [Validation](VALIDATION.en.md) for completed checks and remaining performance, recovery and distribution checks. Wiring up the code does not establish verification on real equipment.
+
+BMS and an external plugin loader are not implemented. Scope implementation after a real user's player, skin, input method and verification fixtures are available. Adding a detector alone does not establish compatible input, lane layout or scrolling.
 
 ## Design constraints
 

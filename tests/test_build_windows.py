@@ -70,6 +70,10 @@ class RuntimeNoticeTests(unittest.TestCase):
             self.stack.enter_context(patch("tools.build_windows." + name, value))
         self.stack.enter_context(patch.dict("sys.modules", {"tkinter": fake_tk}))
         self.verifier = self.stack.enter_context(patch.object(builder, "verify_runtime", return_value=self.provenance))
+        self.automation = {"verified": True, "packages": {
+            "pillow": {"version": "12.3.0"}, "websocket-client": {"version": "1.9.2"}},
+            "bundledFiles": {}, "licenses": {}}
+        self.stack.enter_context(patch.object(builder, "verify_dependencies", return_value=self.automation))
         self.requested = []
 
         def upstream(url):
@@ -89,8 +93,9 @@ class RuntimeNoticeTests(unittest.TestCase):
 
     def test_verified_runtime_uses_matching_notices_and_retains_evidence(self):
         details = self.collect()
-        self.verifier.assert_called_once_with(self.python, self.internal)
+        self.verifier.assert_called_once_with(self.python, self.internal, dependency_binaries={})
         self.assertTrue(details["runtimeProvenanceVerified"])
+        self.assertTrue(details["automationProvenanceVerified"])
         self.assertEqual(details["unverifiedComponents"], [])
         self.assertIsNone(details["referenceBuild"])
         self.assertEqual((details["libffi"], details["liblzma"]), ("3.4.4", "5.2.5"))
@@ -114,6 +119,13 @@ class RuntimeNoticeTests(unittest.TestCase):
         self.assertIn("mpdecimal 4.0.0", notice)
         self.assertNotIn("publicReleaseReady", notice)
         self.assertNotIn("local prototype", notice)
+        self.assertIn("verified separately", notice)
+        self.assertNotIn("every packaged DLL/PYD match", notice)
+
+    def test_verified_python_does_not_override_failed_automation_proof(self):
+        with self.assertRaisesRegex(RuntimeError, "Automation dependency provenance"):
+            builder.require_release_provenance({"runtimeProvenanceVerified": True,
+                                                "automationProvenanceVerified": False}, True)
 
     def test_custom_runtime_remains_buildable_without_false_verification(self):
         self.verifier.side_effect = RuntimeError("Missing regular runtime evidence file: runtime.zip")

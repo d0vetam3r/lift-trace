@@ -14,9 +14,10 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from native_input import NativeInput
+from automation import Automation, AutomationError
 
 MAX_BODY = 32 * 1024
 CLIENT_QUEUE_SIZE = 256
@@ -33,8 +34,9 @@ def reject_constant(value: str) -> None:
 
 
 class Bridge:
-    def __init__(self, data_dir: Path, native: NativeInput | None = None):
+    def __init__(self, data_dir: Path, native: NativeInput | None = None, *, automation=None):
         self.data_dir = data_dir
+        self.automation = automation if automation is not None else Automation(data_dir)
         self.native = native if native is not None else NativeInput()
         self.lock = threading.RLock()
         self.clients: set[queue.Queue] = set()
@@ -211,6 +213,7 @@ class Bridge:
     def close(self) -> None:
         self.stopping.set()
         self.broadcast({"type": "reset"})
+        self.automation.close()
         if self.poll_thread is not None:
             self.poll_thread.join(timeout=2)
 
@@ -303,6 +306,19 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/settings":
             with self.server.bridge.lock:
                 self._send(200, self.server.bridge.settings)
+        elif path == "/api/automation":
+            self._send(200, self.server.bridge.automation.status())
+        elif path == "/api/automation/catalog":
+            automation = self.server.bridge.automation
+            try:
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                scenes = query.get("sceneUuid", [None])
+                if len(scenes) != 1:
+                    raise AutomationError("Select one OBS scene.")
+                self._send(200, automation.catalog(scenes[0]))
+            except AutomationError as exc:
+                self._send(400, {"error": str(exc), "code": exc.code,
+                                 "status": automation.status(), "scenes": [], "items": []})
         elif path == "/api/events":
             self._events()
         elif path.startswith("/api/"):
@@ -402,7 +418,26 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         bridge = self.server.bridge
         try:
-            if path == "/api/device":
+            if path.startswith("/api/automation/"):
+                automation = bridge.automation
+                action = path.removeprefix("/api/automation/")
+                if action == "connect":
+                    result = automation.connect(value)
+                elif action == "discover":
+                    result = automation.discover(value.get("sceneUuid"))
+                elif action == "config":
+                    result = automation.configure(value)
+                elif action == "template":
+                    result = automation.template()
+                elif action == "start":
+                    result = automation.start()
+                elif action == "stop":
+                    result = automation.stop()
+                else:
+                    self._send(404, {"error": "Unknown API route."})
+                    return
+                self._send(200, result)
+            elif path == "/api/device":
                 if "id" not in value or (value["id"] is not None and type(value["id"]) is not int):
                     raise ValueError("id must be a device number or null.")
                 bridge.select(value["id"])
@@ -441,6 +476,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"ok": True})
             else:
                 self._send(404, {"error": "Unknown API route."})
+        except AutomationError as exc:
+            self._send(400, {"error": str(exc), "code": exc.code, "status": bridge.automation.status()})
         except (ValueError, RecursionError) as exc:
             self._send(400, {"error": str(exc)})
         except OSError:
