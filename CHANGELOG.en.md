@@ -6,6 +6,7 @@ Changes to the public overlay distribution are recorded here. Internal developme
 
 ## Unreleased
 
+- Apply the same two-second recovery grace to OBS temporary capture-unavailable responses. Brief outages preserve visibility; longer outages require confirmed non-gameplay before showing items again, preventing the same song from being treated as a new one.
 - Document the three projects' responsibilities, independent operation, optional integration, current availability and long-term direction toward a modular open-source ecosystem in the README.
 
 ## 0.2.0 — 2026-10-15

@@ -94,8 +94,9 @@ class VisibilityStatus:
 class VisibilitySession:
     """Only fresh, confirmed gameplay enables targets.
 
-    A classified but late frame is discarded. Existing visibility can survive
-    a short capture stall; a longer stall hides it and requires a fresh exit
+    A classified but late frame is discarded. A fresh, known unavailable capture
+    shares that recovery budget. Existing visibility can survive a short capture
+    stall; a longer stall hides it and requires a fresh exit
     before another entry. This prevents a capture stall from looking like a
     new song to optional consumers of the overlay's visibility.
 
@@ -310,7 +311,14 @@ class VisibilitySession:
             # Rejected late frames still establish timestamp ordering, but do
             # not advance the freshness budget or the confirmation window.
             self._last_seen_stamp = stamp
-        if recoverable_stale:
+        recoverable_missing = (valid and observation.state is PlayState.UNKNOWN
+                               and getattr(self.detector, "last_error", None) == "capture-unavailable")
+        if recoverable_stale or recoverable_missing:
+            self._wait_for_frame(now)
+        elif valid and observation.state is PlayState.UNKNOWN and self._recovery_anchor is not None:
+            # An unclassified frame still hides immediately, but cannot erase
+            # the existing outage budget or bypass its required fresh exit.
+            self._unknown()
             self._wait_for_frame(now)
         elif not valid or observation.state is PlayState.UNKNOWN:
             self._unknown()

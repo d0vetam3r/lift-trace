@@ -6,6 +6,12 @@
 
 This record separates evidence for the **v0.2.0 release-preparation source, public 0.1.0 prototype and earlier development source**. It separates automated and AI-assisted checks from testing that requires a person or physical hardware. A passing check supports only the behavior and environment it exercised; it does not certify the product.
 
+## 2026-10-15: Temporary capture-unavailable recovery fix
+
+In the isolated working copy, Windows/Python 3.12.14 passed 30 visibility-policy, 32 automation-lifecycle and 32 synthetic-image detector checks. They verify that brief OBS capture-unavailable responses preserve visibility, an outage beyond two seconds cannot re-enable the same song, and confirmed non-gameplay permits a later play session. They also cover intermittent frames and ordinary `UNKNOWN` states without resetting the recovery grace. These checks use fake clocks, mocked OBS and synthetic images; no actual OBS, game or hardware session, deployment, new EXE build or human language review was performed. AI-assisted review compared the scope of the Korean, English and Japanese changelog, user guide and development notes.
+
+Full Python discovery ran 207 tests: 203 passed, while four transport-frame tests errored because that Python environment lacked `websocket-client`. All 16 transport-module tests then passed under Python 3.13.16 with the pinned dependencies. This is validation across separate runs after correcting the environment, not one clean full-suite run. All 126 JavaScript tests passed under Node.js 24.19.0. The full Python run includes OBS-helper checks with temporary servers and fake parent processes, plus eight source-ZIP build, checksum, extraction, execution and documentation-link checks.
+
 ## 2026-10-15: Related-project documentation
 
 AI-assisted review compared the Korean, English and Japanese README descriptions for consistent responsibilities, independent operation, optional integration and publication status. All eight existing source distribution tests passed on Windows/Python 3.12.14, including relative documentation links and exclusion of private files. Only documentation changed; no new application build, live broadcast or hardware testing, or human language review was performed.
