@@ -80,7 +80,7 @@ class PacketTests(unittest.TestCase):
         encoded = packet(snapshot)
         self.assertEqual(len(encoded), 98472)
         self.assertEqual(struct.unpack_from('<8sIIQQQdII', encoded),
-                         (b'LIFTNV01', 1, 98472, 17, 23, 123456789, 1800000000123.5, 1, 2))
+                         (b'LIFTNV01', 2, 98472, 17, 23, 123456789, 1800000000123.5, 1, 2))
         self.assertEqual(struct.unpack_from('<13dII', encoded, 56),
                          tuple(SETTINGS[key] for key in SETTING_FIELDS) + (26, 0))
         for index, event in enumerate(snapshot['events']):
@@ -92,6 +92,24 @@ class PacketTests(unittest.TestCase):
         self.assertEqual(len(packet(full)), PACKET_BYTES)
         full['events'].append(dict(snapshot['events'][0]))
         with self.assertRaises(ValueError): packet(full)
+
+    def test_placement_offsets_do_not_change_input_records(self):
+        snapshot = sample()
+        original = packet(snapshot)
+        for x, y in ((-3840, -2160), (3840, 2160), (-17, 23), (0, 0)):
+            snapshot['settings'].update(obsOffsetX=x, obsOffsetY=y)
+            encoded = packet(snapshot)
+            self.assertEqual(struct.unpack_from('<hh', encoded, 164), (x, y))
+            self.assertEqual(encoded[:164], original[:164])
+            self.assertEqual(encoded[168:], original[168:])
+        for name, value in (('obsOffsetX', 3841), ('obsOffsetX', -3841),
+                            ('obsOffsetY', 2161), ('obsOffsetY', -2161),
+                            ('obsOffsetX', .5), ('obsOffsetY', float('nan')),
+                            ('obsOffsetX', True), ('obsOffsetY', '12')):
+            invalid = sample()
+            invalid['settings'][name] = value
+            with self.subTest(name=name, value=value), self.assertRaises(ValueError):
+                packet(invalid)
 
     def test_malformed_and_nonfinite_input_is_rejected(self):
         for mutate in (
@@ -332,10 +350,10 @@ class CProtocolTests(unittest.TestCase):
 
     def test_c_rejects_header_flags_nonfinite_and_invalid_event_intervals(self):
         for offset, format_, value in (
-            (0, '<8s', b'BADMAGIC'), (8, '<I', 2), (12, '<I', PACKET_BYTES-1),
+            (0, '<8s', b'BADMAGIC'), (8, '<I', 1), (12, '<I', PACKET_BYTES-1),
             (16, '<Q', 0), (24, '<Q', 0), (32, '<Q', 0), (40, '<d', float('nan')),
             (48, '<I', 2), (52, '<I', 4097), (56, '<d', float('inf')),
-            (160, '<I', 64), (164, '<I', 1), (168, '<i', 8),
+            (160, '<I', 64), (164, '<h', 3841), (166, '<h', -2161), (168, '<i', 8),
             (172, '<i', 1), (176, '<d', float('nan')), (184, '<d', 1),
         ):
             with self.subTest(offset=offset, value=value):

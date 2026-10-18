@@ -107,6 +107,21 @@ test('display-only settings preserve raw key and scratch intervals', () => {
   assert.equal(after.settings.shortInputPercent, 1);
 });
 
+test('OBS placement settings use existing normalization without resetting input', () => {
+  const { observer, reference } = pair();
+  feed(observer, reference, raw(350000.125, [0], 0));
+  feed(observer, reference, raw(350010.25, [0], .1));
+  const before = capture(observer, reference, 350020);
+  feed(observer, reference, { type: 'settings', settings: { ...BASE,
+    side: '2P', liftNumber: 500, obsOffsetX: '-17.4', obsOffsetY: 9999 } });
+  const after = capture(observer, reference, 350030);
+  assert.deepEqual(after.events, before.events);
+  assert.equal(after.settings.side, '2P');
+  assert.equal(after.settings.liftNumber, 500);
+  assert.equal(after.settings.obsOffsetX, -17);
+  assert.equal(after.settings.obsOffsetY, 2160);
+});
+
 test('mapping, mode, axis and scratch inversion changes retain canonical reset behavior', () => {
   for (const change of [
     { buttonMap: [6, 5, 4, 3, 2, 1, 0] }, { axisIndex: 1 },

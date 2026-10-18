@@ -49,9 +49,10 @@ Raw controller timestamps and the existing grace policy are unchanged.
 
 Keyboard head/body, short-input scaling, delay, 1P/2P, size, speed, guides and
 background come from the existing UI. Scratch always retains its body and
-direction colors/arrow, independent of keyboard shortening. OBS scene placement,
-automatic visibility and recording integration are not switched to this source
-by the launcher. Test it in a disposable profile before any production migration.
+direction colors/arrow, independent of keyboard shortening. Optional scene
+placement and automatic visibility setup are described below. The launcher does
+not migrate existing sources or recording targets. Test in a disposable profile
+before any production migration.
 Actual controller gameplay and end-to-end input latency remain separate checks;
 see the live results in [RESULTS.md](RESULTS.md) before interpreting automated fixtures as hardware tests.
 
@@ -67,6 +68,45 @@ executed here. The recorded local test instead used Clang and a minimal local AB
 header; that header and local toolchain are not part of this experiment's source.
 
 ## Boundary
+
+### Optional OBS placement and automatic visibility
+
+In the disposable OBS installation, load `obs-native-layout.lua` as a script.
+Set the same live channel as the launcher and a distinct native source name,
+then use its add/bind button in the intended scene. A new native item starts
+hidden; an existing item's visibility is preserved. The button resets scale,
+crop, rotation, alignment and bounds for standard placement. Following settings
+thereafter changes only its X/Y position; it preserves visibility, item order,
+locking and other transforms. Disable following to keep manual positioning.
+
+The existing settings UI supplies 1P/2P, LIFT and `obsOffsetX/Y`. The helper uses
+the same 1920×1080 reference as `getObsPlacement`; output width/height continue
+to follow the existing renderer settings. It reads a bounded shared-memory
+header with zero-wait locking. No periodic file reads, socket requests or handle
+opens run in the placement timer. Unavailable, stale or invalid data leaves the
+last position unchanged. Either the helper or producer can start first, and a
+producer restart on the same channel does not change item visibility.
+
+The binding saves the scene UUID, scene-item ID, source UUID and live channel.
+Renaming preserves the binding. Switching scenes never retargets it; replacing
+a source/item or changing its channel requires explicit rebinding. An ambiguous
+duplicate placement is rejected unless the exact item was already pinned.
+A same-name browser source is never replaced. Rebuild the experimental plugin
+along with the launcher: wire protocol v2 carries placement offsets and rejects
+v1 packets instead of interpreting the former reserved bytes as offsets.
+
+For automatic visibility, use the launcher's **existing** automatic control UI:
+connect to the isolated OBS, select the game capture and the native overlay item,
+save the selection, then start. The same detection, debounce and capture-recovery
+policy applies to browser and native sources. Placement itself never starts
+automatic visibility or turns an existing item on/off. Optional source-mode
+automation dependencies are listed in [the development guide](../../docs/DEVELOPMENT.en.md).
+
+Live Core remains optional and unchanged. A future recording migration must
+explicitly select the new native item's identity in Core as well; creating or
+renaming an overlay does not retarget an existing recording configuration.
+The first-at-most-240-second cap and next-round unsaved disposal stay in Core.
+This change does not install into or modify a running broadcast environment.
 
 - With an empty live channel, synthetic keyboard events are rendered: a press every 120 ms, starting at
   index -3, lane `positiveMod(index, 7) + 1`, with a 40 ms hold. There is no

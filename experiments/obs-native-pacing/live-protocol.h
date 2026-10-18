@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT
- * Optional local live bridge v1. All integers/doubles are little-endian.
+ * Optional local live bridge v2. All integers/doubles are little-endian.
  * Producer and consumer hold the named mutex while writing/copying this POD.
  * No pointer, platform bool, or compiler-dependent packing crosses the boundary.
  */
@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include "pacing-geometry.h"
 
-#define LIFT_LIVE_VERSION 1u
+#define LIFT_LIVE_VERSION 2u
 #define LIFT_LIVE_EVENTS 4096u
 #define LIFT_LIVE_SIZE 98472u
 #define LIFT_LIVE_STALE_NS UINT64_C(1000000000)
@@ -29,7 +29,8 @@ struct lift_live_packet {
 	/* green,sudden,lift,width,height,scratchWidth,blackRatio,noteHeight,
 	 * speedScale,delay,shortThreshold,shortPercent,trailOpacity */
 	double settings[13];
-	uint32_t flags, reserved;
+	uint32_t flags;
+	int16_t obs_offset_x, obs_offset_y;
 	struct lift_live_event events[LIFT_LIVE_EVENTS];
 };
 
@@ -38,6 +39,8 @@ _Static_assert(offsetof(struct lift_live_packet, qpc_ns) == 32, "QPC ABI");
 _Static_assert(offsetof(struct lift_live_packet, epoch_ms) == 40, "epoch ABI");
 _Static_assert(offsetof(struct lift_live_packet, settings) == 56, "settings ABI");
 _Static_assert(offsetof(struct lift_live_packet, flags) == 160, "flags ABI");
+_Static_assert(offsetof(struct lift_live_packet, obs_offset_x) == 164, "placement X ABI");
+_Static_assert(offsetof(struct lift_live_packet, obs_offset_y) == 166, "placement Y ABI");
 _Static_assert(offsetof(struct lift_live_packet, events) == 168, "header ABI");
 _Static_assert(sizeof(struct lift_live_packet) == LIFT_LIVE_SIZE, "packet ABI");
 
@@ -58,7 +61,8 @@ static inline bool lift_live_valid(const struct lift_live_packet *packet)
 	if (packet->version != LIFT_LIVE_VERSION || packet->size != LIFT_LIVE_SIZE ||
 	    !packet->session || !packet->sequence || !packet->qpc_ns ||
 	    packet->alive > 1 || packet->count > LIFT_LIVE_EVENTS ||
-	    (packet->flags & ~63u) || packet->reserved ||
+	    (packet->flags & ~63u) || packet->obs_offset_x < -3840 || packet->obs_offset_x > 3840 ||
+	    packet->obs_offset_y < -2160 || packet->obs_offset_y > 2160 ||
 	    !lift_live_number(packet->epoch_ms, 0, 100000000000000.0)) return false;
 	const double *s = packet->settings;
 	if (!lift_live_number(s[0], 50, 2000) || !lift_live_integer(s[2], 0, 999) ||

@@ -71,10 +71,18 @@ def pack_snapshot(snapshot: dict, *, session: int, sequence: int,
              | (int(settings.get("shortInputEnabled") is True) << 3)
              | (int(settings.get("showGuides") is True) << 4)
              | (int(settings.get("background") == "transparent") << 5))
+    offsets = []
+    for name, limit in (("obsOffsetX", 3840), ("obsOffsetY", 2160)):
+        value = finite_number(settings.get(name, 0), name)
+        if value != int(value) or not -limit <= value <= limit:
+            raise ValueError("Invalid normalized placement offset.")
+        offsets.append(int(value))
     packet = bytearray(PACKET_BYTES)
-    struct.pack_into("<8sIIQQQdII", packet, 0, MAGIC, 1, PACKET_BYTES,
+    struct.pack_into("<8sIIQQQdII", packet, 0, MAGIC, 2, PACKET_BYTES,
                      session, sequence, qpc_ns, epoch_ms, int(alive), len(events) if alive else 0)
-    struct.pack_into("<13dII", packet, 56, *numbers, flags, 0)
+    # v2 uses the former four reserved bytes for normalized OBS offsets. Event
+    # offsets/size/timestamps stay identical; older consumers reject the version.
+    struct.pack_into("<13dIhh", packet, 56, *numbers, flags, *offsets)
     if alive:
         for index, event in enumerate(events):
             if not isinstance(event, dict):

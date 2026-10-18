@@ -1,5 +1,65 @@
 # Native renderer measurements — 2026-10-18
 
+## Automatic placement and visibility integration
+
+The optional native layout helper follows the same normalized UI settings over
+wire protocol v2. It copies only the 168-byte header with a zero-wait mutex;
+the position timer performs no file/socket I/O or repeated connection opens.
+Automatic visibility uses the unchanged `VisibilitySession` and `ObsSceneItems`
+policy with an explicitly selected native item. Normal application, input,
+automatic-detection, Core and Remote implementations were not modified.
+
+A disposable hidden OBS 32.1.2 session exercised the existing settings/device
+HTTP handlers through in-memory requests, real Node observer/shared memory,
+real C source, and real Lua layout helper. Synthetic play-state observations
+drove the original visibility policy. A local file request/response adapter
+replaced only its OBS transport because sandbox loopback connections are blocked.
+This is an actual OBS scene-control test, not a live game-capture or WebSocket
+transport test; file polling is confined to the test harness and is not used
+as pacing-performance evidence. No stream or recording was started.
+
+The verified cases include both producer/source startup orders, initial hidden
+creation, confirmed gameplay show/hide, 1P/2P and LIFT/offset changes, output-size
+changes, preservation of other transforms and unrelated items, stale producer
+and same-channel restart, renamed identity, replacement rejection, explicit
+reapply, follow off/on, and script save/unload/reload. Only the policy produced
+visibility requests: `[false, true, false, true]`. Placement changes and producer
+recovery produced no extra song-start boundary.
+
+Seven focused Python native-selection/policy tests and the extended JavaScript
+selection tests passed. A separate private, in-memory recording regression used
+the original policy and recording adapter: initial hidden state started no clip,
+recovery/rename retained the same clip, the first 240 seconds froze once, waiting
+until 600 seconds retained that file, and the next real round discarded the
+unsaved clip. No private integration code or footage is included in this repo.
+All 138 JavaScript tests (including 11 observer tests), 15 transport/protocol
+tests, 420 synthetic geometry vectors and 720 live snapshots/1,368 event vectors
+passed locally. Geometry remained identical to the existing JS calculations.
+The Lua callback harness passed 16 cases, including missing-plugin rejection,
+ambiguous identity, cold binding, nonblocking contention, stale/invalid packets,
+abandoned-writer quarantine, follow toggles and persisted binding validation.
+It uses an existing Lua 5.1 library through Python `ctypes`, with no OBS process;
+CI explicitly skips this optional harness where that library is unavailable.
+
+The v2 native DLL SHA-256 is
+`c41ff771d3b037f6787d9febc2f45e14d922c8c7a7b9c87a6b6aa7f2b9132544`.
+Older recordings below used earlier protocol/builds; they are not new pacing
+measurements for the layout helper. Physical-controller/game-load behavior and
+the official SDK/CMake build remain unverified. Production settings and media
+were preserved, and only owned test processes were stopped. No administrator
+request, computer use, production deployment, or recording-target migration
+was performed.
+
+한국어: 격리 OBS에서 C 소스의 자동 배치와 기존 정책의 표시 전환을 확인했습니다.
+배치 변경·연결 복구는 새 표시 경계를 만들지 않았고, 별도 메모리 시험에서 최초
+240초 보관·장시간 대기·다음 판 미저장 폐기 규칙이 유지됐습니다. 실물 컨트롤러와
+실제 게임 부하는 미검증이며, 기존 방송 환경에는 적용하지 않았습니다.
+
+日本語: 分離したOBSでCソースの自動配置と既存方針による表示切り替えを確認しました。
+配置更新・再接続による余分な表示境界はなく、別のメモリー内試験で最初の240秒の保持・
+長時間待機・次のプレイでの未保存破棄を確認しました。実機・実ゲーム負荷は未検証で、
+通常の配信環境には適用していません。
+
 ## Live transport, scratch and settings integration
 
 The final Windows candidate connected generated controller samples through the
@@ -60,9 +120,9 @@ Tested experimental DLL SHA-256:
 
 No production OBS configuration, executable, settings, media, Core or Remote was
 changed. Owned test OBS/Node processes exited. The original settings file hash
-was unchanged. Scene placement (`obsOffsetX/Y` and the existing automatic
-placement button), automatic visibility and recording remain on the original
-browser source; this experiment does not migrate them. Lift Trace remains
+was unchanged. At the time of these earlier recordings, scene placement and
+automatic visibility had not yet been connected to the native source. Their
+later checks are recorded above; production recording targets remain unchanged. Lift Trace remains
 independent, and recording code and the four-minute rule are untouched.
 
 한국어: 기존 입력·스크래치 코드와 표시 설정을 C 렌더러에 연결해 자동 검증했습니다.
