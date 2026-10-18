@@ -37,3 +37,16 @@ test('source names hide internal IDs and distinguish repeated placements in OBS 
   assert.deepEqual(named.map(item=>item.sceneItemId),[3,2,1]);
   assert.ok(named.every(item=>!item.label.includes('#')));
 });
+
+test('native renderer inputs use the unchanged exact scene-item selection contract', () => {
+  const native = {sceneItemId:6, sourceUuid:'native', sourceName:'Lift Native',
+    inputKind:'lift_trace_native_pacing', sourceType:'OBS_SOURCE_TYPE_INPUT', isGroup:false};
+  const candidates = [...items, native, {...native, sceneItemId:7}];
+  const result = selectedConfig('s', 1, [6], candidates);
+  assert.deepEqual(result.targets, [{sceneUuid:'s', sceneItemId:6, sourceUuid:'native'}]);
+  assert.equal(selectableItems(candidates).filter(item => item.sourceUuid === 'native').length, 2);
+  const renamed = candidates.map(item => item.sceneItemId === 6
+    ? {...item, sourceName:'Renamed native overlay'} : item);
+  assert.deepEqual(selectedConfig('s', 1, [6], renamed), result);
+  assert.throws(() => selectedConfig('s', 1, [6], candidates.filter(item => item.sceneItemId !== 6)));
+});
