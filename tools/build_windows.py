@@ -398,7 +398,7 @@ def build_windows(root: Path = ROOT, output_dir: Path | None = None,
     for relative, contents in files.items():
         if (relative.endswith(".md") or relative.startswith("docs/images/")
                 or relative in ("LICENSE", "obs-lift-trace.lua", "start-obs-bridge.ps1")):
-            if relative.startswith(".github/"):
+            if relative.startswith((".github/", "experiments/")):
                 continue
             path = app / relative
             path.parent.mkdir(parents=True, exist_ok=True)

@@ -94,6 +94,22 @@ DOCUMENTATION_FILES = (
 )
 
 SOURCE_FILES = (
+    # Developer-only pacing prototype; never part of RUNTIME_FILES.
+    "experiments/obs-native-pacing/CMakeLists.txt",
+    "experiments/obs-native-pacing/README.md",
+    "experiments/obs-native-pacing/README.ko.md",
+    "experiments/obs-native-pacing/README.ja.md",
+    "experiments/obs-native-pacing/RESULTS.md",
+    "experiments/obs-native-pacing/lift-native-pacing.c",
+    "experiments/obs-native-pacing/pacing-geometry.h",
+    "experiments/obs-native-pacing/pacing-control.lua",
+    "experiments/obs-native-pacing/geometry-test.c",
+    "experiments/obs-native-pacing/geometry-vectors.mjs",
+    "experiments/obs-native-pacing/check-geometry.py",
+    "experiments/obs-native-pacing/generate-browser.mjs",
+    "experiments/obs-native-pacing/analysis/analyze_native_pacing.py",
+    "experiments/obs-native-pacing/analysis/barcode_analysis.py",
+    "experiments/obs-native-pacing/analysis/README.md",
     ".gitignore",
     "package.json",
     "tools/build_release.py",
