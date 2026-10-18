@@ -2,6 +2,8 @@
 
 [한국어](README.ko.md) · [日本語](README.ja.md) · [English](README.md)
 
+The live implementation now lives in [native/obs](../../native/obs/README.md). This directory retains the explicit synthetic benchmark build, disposable recording fixtures and analysis. Its empty-channel synthetic behavior is preserved; the live runtime build generates no synthetic notes. Legacy observer/Lua paths below are compatibility entry points. Do not install the benchmark DLL for live use.
+
 This is an optional rendering experiment, **not a released replacement overlay**.
 It tests whether drawing input-note geometry directly during OBS composition
 avoids the repeated-frame/catch-up pattern observed in browser-source output.

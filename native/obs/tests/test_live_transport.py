@@ -21,8 +21,8 @@ import time
 import unittest
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE.parents[1]))
+sys.path.insert(0, str(HERE.parent))
+sys.path.insert(0, str(HERE.parents[2]))
 from live_bridge import SharedPublisher, NativePipeline, pack_snapshot, validate_channel, PACKET_BYTES, SETTING_FIELDS
 from server import Bridge
 

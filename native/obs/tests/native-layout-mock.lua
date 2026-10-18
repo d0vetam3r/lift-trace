@@ -149,6 +149,7 @@ local function fixture()
     function s:load()
         local env = setmetatable({obslua = obs, require = function(name) equal(name, "ffi"); return ffi end,
             io = {open = function() error("adapter must not access files") end}}, {__index = _G})
+        env.script_path = function() return FIXTURE_SCRIPT_DIRECTORY or "unused/" end
         local chunk = assert(loadfile(adapter_path)); setfenv(chunk, env); chunk()
         env.script_defaults(self.settings); env.script_load(self.settings)
         self.env, self.props = env, env.script_properties()

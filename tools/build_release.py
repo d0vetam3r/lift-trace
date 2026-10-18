@@ -94,7 +94,29 @@ DOCUMENTATION_FILES = (
 )
 
 SOURCE_FILES = (
-    # Developer-only pacing prototype; never part of RUNTIME_FILES.
+    # Optional native sidecar source and tests; never part of RUNTIME_FILES.
+    "native/obs/live_bridge.py",
+    "native/obs/live_observer.py",
+    "native/obs/live-input.mjs",
+    "native/obs/obs-native-layout.lua",
+    "native/obs/obs-native-observer.lua",
+    "native/obs/pacing-geometry.h",
+    "native/obs/live-protocol.h",
+    "native/obs/lift-native-pacing.c",
+    "native/obs/CMakeLists.txt",
+    "native/obs/README.md",
+    "native/obs/README.ko.md",
+    "native/obs/README.ja.md",
+    "native/obs/tests/live-input.test.mjs",
+    "native/obs/tests/test_live_observer.py",
+    "native/obs/tests/native-observer-mock.lua",
+    "native/obs/tests/test_live_transport.py",
+    "native/obs/tests/test_live_layout.py",
+    "native/obs/tests/test_runtime_boundary.py",
+    "native/obs/tests/renderer-mode-test.c",
+    "native/obs/tests/native-layout-mock.lua",
+
+    # Explicit benchmark build, legacy entry shims and disposable lab tools.
     "experiments/obs-native-pacing/CMakeLists.txt",
     "experiments/obs-native-pacing/README.md",
     "experiments/obs-native-pacing/README.ko.md",
@@ -106,16 +128,10 @@ SOURCE_FILES = (
     "experiments/obs-native-pacing/live-geometry-vectors.mjs",
     "experiments/obs-native-pacing/check-live-geometry.py",
     "experiments/obs-native-pacing/live-input.mjs",
-    "experiments/obs-native-pacing/live-input.test.mjs",
     "experiments/obs-native-pacing/live_bridge.py",
     "experiments/obs-native-pacing/live_launcher.py",
     "experiments/obs-native-pacing/live_observer.py",
-    "experiments/obs-native-pacing/test_live_observer.py",
     "experiments/obs-native-pacing/obs-native-observer.lua",
-    "experiments/obs-native-pacing/native-observer-mock.lua",
-    "experiments/obs-native-pacing/test_live_transport.py",
-    "experiments/obs-native-pacing/test_live_layout.py",
-    "experiments/obs-native-pacing/native-layout-mock.lua",
     "experiments/obs-native-pacing/obs-native-layout.lua",
     "experiments/obs-native-pacing/live-control.lua",
     "experiments/obs-native-pacing/pacing-geometry.h",

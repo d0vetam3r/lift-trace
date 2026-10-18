@@ -23,7 +23,15 @@ class LiveLayoutLuaTests(unittest.TestCase):
     def test_observer_launcher_callbacks_and_exact_owner_identity(self):
         self.run_lua_mock("obs-native-observer.lua", "native-observer-mock.lua", "assert(NATIVE_OBSERVER_TESTS_PASSED == 7)")
 
-    def run_lua_mock(self, adapter_name, mock_name, assertion):
+    def test_legacy_layout_preserves_callbacks_and_saved_binding(self):
+        self.run_lua_mock("obs-native-layout.lua", "native-layout-mock.lua",
+                          "assert(NATIVE_LAYOUT_TESTS_PASSED == 16)", legacy=True)
+
+    def test_legacy_observer_preserves_callbacks_and_quoted_paths(self):
+        self.run_lua_mock("obs-native-observer.lua", "native-observer-mock.lua",
+                          "assert(NATIVE_OBSERVER_TESTS_PASSED == 7)", legacy=True)
+
+    def run_lua_mock(self, adapter_name, mock_name, assertion, legacy=False):
         library = os.environ.get("LUA51_LIBRARY")
         if not library:
             library = ctypes.util.find_library("lua5.1") or ctypes.util.find_library("luajit-5.1")
@@ -44,7 +52,9 @@ class LiveLayoutLuaTests(unittest.TestCase):
         try:
             lua.luaL_openlibs(state)
             # json.dumps is used as Lua string syntax here, never shell code.
-            program = ("ADAPTER_PATH = " + json.dumps((HERE / adapter_name).as_posix(), ensure_ascii=False) + "\n"
+            adapter_dir = HERE.parents[2] / "experiments" / "obs-native-pacing" if legacy else HERE.parent
+            program = ("FIXTURE_SCRIPT_DIRECTORY = " + json.dumps(adapter_dir.as_posix() + "/") + "\n"
+                       + "ADAPTER_PATH = " + json.dumps((adapter_dir / adapter_name).as_posix(), ensure_ascii=False) + "\n"
                        + (HERE / mock_name).read_text(encoding="utf-8") + "\n" + assertion + "\n").encode("utf-8")
             result = lua.luaL_loadbuffer(state, program, len(program), b"native-layout-mock")
             if result == 0:

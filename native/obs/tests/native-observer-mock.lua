@@ -40,7 +40,7 @@ local function fixture(settings)
     function obs.obs_properties_add_bool(...) end
     obs.obs_properties_add_int, obs.obs_properties_add_path, obs.obs_properties_add_text = obs.obs_properties_add_bool, obs.obs_properties_add_bool, obs.obs_properties_add_bool
     local environment = setmetatable({obslua = obs, require = function(name) equal(name, "ffi"); return ffi end,
-        script_path = function() return 'C:/test path/native/' end}, {__index = _G})
+        script_path = function() return FIXTURE_SCRIPT_DIRECTORY or 'C:/test path/native/' end}, {__index = _G})
     local chunk = assert(loadfile(ADAPTER_PATH)); setfenv(chunk, environment); chunk()
     state.settings, state.env = settings or {}, environment
     environment.script_defaults(state.settings); environment.script_load(state.settings)
@@ -56,7 +56,7 @@ case(function()
     local s = fixture(config()); s.props.start(); local v = s.launches[1]
     equal(v.verb, 'open'); equal(v.show, 0); equal(v.program, s.settings.python_path)
     assert(v.args:find('--obs%-pid 123 %-%-obs%-start%-ticks 144115188075855995'))
-    assert(v.args:find('"C:/test path/native/live_observer.py"', 1, true))
+    assert(v.args:find('"' .. (FIXTURE_SCRIPT_DIRECTORY or 'C:/test path/native/') .. 'live_observer.py"', 1, true))
     assert(v.args:find('--port 8765', 1, true)); assert(v.args:find('--status-file "C:\\test path\\status.json"', 1, true))
 end)
 case(function() local c = config(); c.autostart = true; local s = fixture(c); equal(#s.launches, 1) end)

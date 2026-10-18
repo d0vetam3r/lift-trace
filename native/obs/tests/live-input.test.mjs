@@ -2,8 +2,8 @@
 // In-memory input fixtures only. No controller, socket, UI or OBS access.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { InputClient } from '../../web/client.js';
-import { LiveInputObserver } from './live-input.mjs';
+import { InputClient } from '../../../web/client.js';
+import { LiveInputObserver } from '../live-input.mjs';
 
 const BASE = Object.freeze({
   inputMode: 'native', greenNumber: 270, suddenNumber: 70, liftNumber: 401,

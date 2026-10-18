@@ -6,6 +6,8 @@ Changes to the public overlay distribution are recorded here. Internal developme
 
 ## Unreleased
 
+- Separate optional native runtime code into `native/obs`, keeping synthetic/recording experiments separate. Preserve legacy launch/Lua paths, source ID, protocol and settings keys. The runtime build never generates benchmark notes on an empty channel.
+
 - Add an optional native observer for the existing application's event stream and an OBS startup helper. It starts no second input server or UI; when its original OBS exits it cleans up only the observer and its owned Node child.
 
 - Connect the experimental C source to optional placement following existing side, LIFT and OBS offsets. Read shared memory without waiting and update only the pinned scene/item/source identity. Automatic visibility reuses existing target selection and detection policy; placement or reconnection never turns visibility on. Existing broadcast environments are not migrated automatically.

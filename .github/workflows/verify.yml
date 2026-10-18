@@ -35,8 +35,8 @@ jobs:
         run: npm test
       - name: Optional native observer tests
         run: |
-          node --test experiments/obs-native-pacing/live-input.test.mjs
-          python -m unittest discover -s experiments/obs-native-pacing -p "test_live_*.py"
+          node --test native/obs/tests/live-input.test.mjs
+          python -m unittest discover -s native/obs/tests -p "test_*.py"
       - name: Source archive
         run: python tools/build_release.py
 
