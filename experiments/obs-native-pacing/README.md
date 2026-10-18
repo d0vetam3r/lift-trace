@@ -69,6 +69,26 @@ header; that header and local toolchain are not part of this experiment's source
 
 ## Boundary
 
+### Attach to an existing Lift Trace application
+
+When the normal application already owns the input server, use
+`live_observer.py --node PATH_TO_NODE_EXE --channel lift-test --port 8765`
+instead of starting another `live_launcher.py`. This optional observer only
+reads the existing loopback status and event stream. It starts no input poller,
+UI, automation or recording service and never writes application settings.
+On a lost or invalid stream it clears its snapshot, closes its owned Node child,
+and reconnects with a fresh engine and the server's current state.
+
+For OBS-owned startup, add `obs-native-observer.lua`, specify Python/Node paths,
+the existing Lift Trace port and native channel, then enable its opt-in autostart.
+It launches hidden without requesting elevation and verifies OBS's exact process
+creation time; the observer and its child exit when that OBS process exits.
+The existing application/helper still manages its own server and automation.
+Do not start a second server on a port used by Lift Trace or Remote. An optional
+status JSON contains connection/lifecycle metadata, never raw input or settings.
+Removing or reloading the script does not terminate another process by guessed
+PID; the original OBS lifetime remains the owner.
+
 ### Optional OBS placement and automatic visibility
 
 In the disposable OBS installation, load `obs-native-layout.lua` as a script.

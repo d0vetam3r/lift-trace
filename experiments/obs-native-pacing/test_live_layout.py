@@ -18,6 +18,12 @@ HERE = Path(__file__).resolve().parent
 
 class LiveLayoutLuaTests(unittest.TestCase):
     def test_public_callbacks_and_timer(self):
+        self.run_lua_mock("obs-native-layout.lua", "native-layout-mock.lua", "assert(NATIVE_LAYOUT_TESTS_PASSED == 16)")
+
+    def test_observer_launcher_callbacks_and_exact_owner_identity(self):
+        self.run_lua_mock("obs-native-observer.lua", "native-observer-mock.lua", "assert(NATIVE_OBSERVER_TESTS_PASSED == 7)")
+
+    def run_lua_mock(self, adapter_name, mock_name, assertion):
         library = os.environ.get("LUA51_LIBRARY")
         if not library:
             library = ctypes.util.find_library("lua5.1") or ctypes.util.find_library("luajit-5.1")
@@ -38,14 +44,15 @@ class LiveLayoutLuaTests(unittest.TestCase):
         try:
             lua.luaL_openlibs(state)
             # json.dumps is used as Lua string syntax here, never shell code.
-            program = ("ADAPTER_PATH = " + json.dumps((HERE / "obs-native-layout.lua").as_posix(), ensure_ascii=False) + "\n"
-                       + (HERE / "native-layout-mock.lua").read_text(encoding="utf-8")
-                       + "\nassert(NATIVE_LAYOUT_TESTS_PASSED == 16)\n").encode("utf-8")
+            program = ("ADAPTER_PATH = " + json.dumps((HERE / adapter_name).as_posix(), ensure_ascii=False) + "\n"
+                       + (HERE / mock_name).read_text(encoding="utf-8") + "\n" + assertion + "\n").encode("utf-8")
             result = lua.luaL_loadbuffer(state, program, len(program), b"native-layout-mock")
             if result == 0:
                 result = lua.lua_pcall(state, 0, 0, 0)
             if result:
                 message = lua.lua_tolstring(state, -1, None)
+                if message and b"LUAJIT_FFI_UNAVAILABLE" in message:
+                    self.skipTest("Observer launch arithmetic mock requires LuaJIT FFI (included with OBS).")
                 self.fail(message.decode("utf-8", errors="replace") if message else "Unknown Lua error")
         finally:
             lua.lua_close(state)

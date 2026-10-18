@@ -1,5 +1,30 @@
 # Native renderer measurements — 2026-10-18
 
+## Attaching to the existing application
+
+The optional `live_observer.py` reads the existing application's loopback status
+and SSE endpoints. It starts no second controller poller or HTTP server and
+does not write UI settings or recording state. The original input timestamps
+and engine remain unchanged. `obs-native-observer.lua` can opt into hidden
+startup, binding the observer to the exact OBS PID and process creation time.
+
+Focused tests cover GET-only transport, original timestamps/settings, bounded
+parsing and queue overflow, disconnect/reconnect without stuck inputs, owned
+Node cleanup, duplicate-start exclusion, and original-process exit. Lua checks
+cover hidden startup, Windows argument quoting and FILETIME precision beyond
+the exact range of Lua numbers. A real loopback transport test is included; the
+restricted local test environment explicitly skips it on socket permission
+denial. Mock HTTP boundaries and real Node/process ownership still run.
+These checks do not establish physical-controller or game-load performance.
+
+한국어: 기존 앱의 입력 스트림을 읽는 선택적 연결 모듈을 추가했습니다. 입력 수집·
+설정·녹화 상태는 변경하지 않으며, 연결 복구·중복 실행 방지·OBS 종료 시 자식
+프로세스 정리를 자동 검증합니다. 실제 컨트롤러와 게임 부하 검증은 별도입니다.
+
+日本語: 既存アプリの入力ストリームを読む任意の接続モジュールを追加しました。
+入力収集・設定・録画状態は変更せず、再接続、重複起動の防止、OBS終了時の
+子プロセス終了を自動検証します。実機・実ゲーム負荷の検証は別途必要です。
+
 ## Automatic placement and visibility integration
 
 The optional native layout helper follows the same normalized UI settings over
