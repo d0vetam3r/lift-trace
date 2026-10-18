@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 import math
 import time
+import uuid
 from typing import Callable, Protocol
 
 
@@ -59,28 +60,63 @@ class ObsSceneItems:
     A raised error therefore means the actual visibility may be partly changed.
     Groups and nested-scene traversal are deliberately outside this first scope.
     """
-    def __init__(self, targets: tuple[SceneItem, ...], request: Callable[[str, dict], dict]):
+    def __init__(self, targets: tuple[SceneItem, ...], request: Callable[[str, dict], dict],
+                 *, diagnostic: Callable[[dict], None] | None = None):
         self.targets = tuple(targets)
         identities = {(target.scene_uuid, target.item_id) for target in self.targets}
         if not self.targets or len(identities) != len(self.targets):
             raise ValueError("Select at least one target, with no duplicate scene items")
         self.request = request
+        self.diagnostic = diagnostic
+        self.last_request_id: str | None = None
+        self._acknowledged: dict[SceneItem, bool] = {}
+
+    def _report(self, target, visible, actual, outcome):
+        if self.diagnostic is None:
+            return
+        expected = self._acknowledged.get(target)
+        try:
+            self.diagnostic({"requestId": self.last_request_id,
+                             "sceneUuid": target.scene_uuid, "sourceUuid": target.source_uuid,
+                             "sceneItemId": target.item_id, "desired": visible,
+                             "beforeActual": actual, "previousAcknowledged": expected,
+                             "origin": ("external-or-unattributed" if actual is not None
+                                        and expected is not None and actual != expected
+                                        else "lift-command"), "outcome": outcome})
+        except Exception:
+            pass  # Optional diagnostics must never change visibility behavior.
 
     def set_visible(self, visible: bool) -> None:
         scenes = {}
+        actual = {}
+        self.last_request_id = str(uuid.uuid4())
         for target in self.targets:
             if target.scene_uuid not in scenes:
-                scenes[target.scene_uuid] = self.request(
-                    "GetSceneItemList", {"sceneUuid": target.scene_uuid})["sceneItems"]
+                try:
+                    scenes[target.scene_uuid] = self.request(
+                        "GetSceneItemList", {"sceneUuid": target.scene_uuid})["sceneItems"]
+                except Exception:
+                    self._report(target, visible, None, "validation-failed")
+                    raise
             matches = [item for item in scenes[target.scene_uuid]
                        if item.get("sceneItemId") == target.item_id]
             if len(matches) != 1 or matches[0].get("sourceUuid") != target.source_uuid:
+                self._report(target, visible, None, "identity-rejected")
                 raise ValueError("Selected scene item changed; select targets again")
+            value = matches[0].get("sceneItemEnabled")
+            actual[target] = value if type(value) is bool else None
         for target in self.targets:
-            self.request("SetSceneItemEnabled", {
-                "sceneUuid": target.scene_uuid, "sceneItemId": target.item_id,
-                "sceneItemEnabled": visible,
-            })
+            self._report(target, visible, actual[target], "requested")
+            try:
+                self.request("SetSceneItemEnabled", {
+                    "sceneUuid": target.scene_uuid, "sceneItemId": target.item_id,
+                    "sceneItemEnabled": visible,
+                })
+            except Exception:
+                self._report(target, visible, actual[target], "failed")
+                raise
+            self._report(target, visible, actual[target], "acknowledged")
+            self._acknowledged[target] = visible
 
 
 @dataclass(frozen=True)
@@ -123,6 +159,11 @@ class VisibilitySession:
         self._reset()
 
     def _reset_observation_diagnostic(self) -> None:
+        # Only a newly acquired, valid classified sample can refresh optional
+        # playback proofs. Cached frames and the last applied value cannot.
+        self.observation_fresh = False
+        self.observation_state = PlayState.UNKNOWN
+        self.observation_at: float | None = None
         self.observation_age: float | None = None
         self.observation_reason: str | None = None
         self.observation_exception_type: str | None = None
@@ -307,6 +348,11 @@ class VisibilitySession:
             except Exception:
                 pass
         self.error = None if valid or recoverable_stale else "detector-observation-invalid"
+        if valid:
+            self.observation_at = stamp
+            self.observation_state = observation.state
+            self.observation_fresh = (observation.state is not PlayState.UNKNOWN
+                                      and stamp != self._last_observed)
         if valid or recoverable_stale:
             # Rejected late frames still establish timestamp ordering, but do
             # not advance the freshness budget or the confirmation window.

@@ -13,8 +13,9 @@ from pathlib import Path
 import queue
 import threading
 import time
+import uuid
 
-from auto_visibility import ObsSceneItems, SceneItem, VisibilitySession
+from auto_visibility import ObsSceneItems, PlayState, SceneItem, VisibilitySession
 
 
 DIAGNOSTIC_LOG_BYTES = 256 * 1024
@@ -70,12 +71,14 @@ def _selection(value: dict) -> dict:
 class Automation:
     def __init__(self, data_dir: Path, *, connection_factory=None,
                  detector_factory=None, template_capture=None, clock=time.monotonic,
+                 wall_clock=time.time,
                  default_template_path: Path | None = None):
         self.data_dir = Path(data_dir)
         self.template_path = self.data_dir / "automation-template.png"
         self.default_template_path = (Path(default_template_path) if default_template_path is not None
                                       else Path(__file__).resolve().parent / "assets" / "infinitas-score-1080p.png")
         self.clock = clock
+        self.wall_clock = wall_clock
         if connection_factory is None:
             try:
                 from obs_connection import ObsConnection
@@ -109,6 +112,10 @@ class Automation:
                         "captureSourceUuid": None, "targets": []}
         self._state = {"running": False, "state": "unknown", "applied": None,
                        "error": None, "score": None, "connected": False, "diagnostic": None}
+        self._playback = {"version": 1, "eventId": None, "startedAt": None,
+                          "updatedAt": 0.0, "active": False, "targets": []}
+        self._playback_ready = False
+        self._visibility_output = None
         self._load()
 
     def _load(self):
@@ -144,16 +151,29 @@ class Automation:
     def status(self):
         reference, reference_source = self._reference()
         with self._state_lock:
-            connected = self._connection is not None and self._connection.connected
-            state = {**self._state, "connected": connected}
+            state = {**self._state, **self._playback_status_locked()}
             if state["diagnostic"] is not None:
                 state["diagnostic"] = dict(state["diagnostic"])
-            if self._state["connected"] and not connected and not state["error"]:
-                state["error"] = "obs-disconnected"
             config = {**self._config, "hasPassword": bool(self._password),
                       "targets": [dict(item) for item in self._config["targets"]]}
             return {"available": self.available, **state, "config": config,
                     "templateReady": reference is not None, "referenceSource": reference_source}
+
+    def _playback_status_locked(self):
+        connected = self._connection is not None and self._connection.connected
+        state = {key: self._state[key] for key in ("running", "state", "applied", "error")}
+        if self._state["connected"] and not connected and not state["error"]:
+            state["error"] = "obs-disconnected"
+        playback = {**self._playback,
+                    "targets": [dict(item) for item in self._playback["targets"]]}
+        if not connected or not state["running"] or state["error"]:
+            playback["active"] = False
+        return {**state, "connected": connected, "playback": playback}
+
+    def playback_status(self):
+        """Memory-only polling: no reference validation, disk I/O or OBS request."""
+        with self._state_lock:
+            return self._playback_status_locked()
 
     def _reference(self):
         """Prefer a valid local override; never write the bundled reference to data."""
@@ -364,12 +384,19 @@ class Automation:
                     return result
 
             active = ActiveConnection()
+            with self._state_lock:
+                self._playback = {"version": 1, "eventId": None, "startedAt": None,
+                                  "updatedAt": 0.0, "active": False,
+                                  "targets": [dict(item) for item in config["targets"]]}
+                self._playback_ready = False
             try:
                 detector = self.detector_factory(active, config["captureSourceUuid"],
                                                  reference, clock=self.clock)
                 targets = tuple(SceneItem(item["sceneUuid"], item["sceneItemId"], item["sourceUuid"])
                                 for item in config["targets"])
-                session = VisibilitySession(detector, ObsSceneItems(targets, active.request), clock=self.clock)
+                self._visibility_output = ObsSceneItems(targets, active.request,
+                                                       diagnostic=self._record_visibility)
+                session = VisibilitySession(detector, self._visibility_output, clock=self.clock)
                 state = session.start()
             except Exception:
                 self._connection_failed()
@@ -399,7 +426,7 @@ class Automation:
                 "detectorError": detector_error,
                 "recoveryState": getattr(session, "recovery_state", None)}
 
-    def _publish(self, session, detector, error=None, *, diagnostic=None, record=True):
+    def _publish(self, session, detector, error=None, *, diagnostic=None, record=True, observed=False):
         state = session.status()
         score = getattr(detector, "last_score", None)
         if type(score) not in (int, float) or not math.isfinite(score):
@@ -409,8 +436,74 @@ class Automation:
                                applied=state.applied, error=error or state.error, score=score,
                                diagnostic=(self._diagnostic(session, detector)
                                            if diagnostic is None else diagnostic))
+            self._update_playback(session, state, detector, observed)
         if record:
             self._record_transition()
+
+    def _update_playback(self, session, state, detector, observed):
+        """Publish one optional proof per confirmed exit/entry, under state lock.
+
+        Visibility may be written by other OBS controllers. It is deliberately
+        not an input to this proof. Consumers must check freshness and deduplicate
+        eventId; reading status never renews its timestamps or starts work.
+        """
+        proof = self._playback
+        proof["active"] = False
+        if not observed:
+            return
+        now = self.wall_clock()
+        if type(now) not in (int, float) or not math.isfinite(now) or now <= 0:
+            return
+        proof["updatedAt"] = float(now)
+        # Visibility acknowledgments may themselves take longer than a fresh
+        # sample's lifetime. Do not mint a current proof from an old frame.
+        stamp, observed_now = session.observation_at, self.clock()
+        current_sample = (stamp is not None and math.isfinite(observed_now)
+                          and 0 <= observed_now - stamp <= session.max_age)
+        fresh = (state.running and not self._state["error"]
+                 and getattr(detector, "last_error", None) is None
+                 and session.recovery_state is None and session.observation_fresh
+                 and session.observation_state is state.state and current_sample)
+        if not fresh:
+            return
+        if state.state is PlayState.NOT_PLAYING and state.applied is False:
+            self._playback_ready = True
+        elif state.state is PlayState.PLAYING and state.applied is True:
+            if self._playback_ready:
+                proof["eventId"], proof["startedAt"] = str(uuid.uuid4()), float(now)
+                self._playback_ready = False
+            proof["active"] = proof["eventId"] is not None
+
+    def _record_visibility(self, value):
+        """Queue exact identities and bounded causal metadata, never OBS names."""
+        def identifier(raw):
+            try:
+                return str(uuid.UUID(raw)) if isinstance(raw, str) else None
+            except (ValueError, AttributeError):
+                return None
+
+        try:
+            record = {"at": datetime.now(timezone.utc).isoformat(),
+                      "events": ["visibility-command"], "error": None,
+                      "state": "unknown", "applied": None, "score": None,
+                      "requestId": identifier(value.get("requestId")),
+                      "sceneUuid": identifier(value.get("sceneUuid")),
+                      "sourceUuid": identifier(value.get("sourceUuid"))}
+            item_id = value.get("sceneItemId")
+            record["sceneItemId"] = item_id if type(item_id) is int and 0 <= item_id <= 2147483647 else None
+            for key in ("desired", "beforeActual", "previousAcknowledged"):
+                raw = value.get(key)
+                record[key] = raw if type(raw) is bool else None
+            record["origin"] = (value.get("origin") if value.get("origin") in
+                                ("lift-command", "external-or-unattributed") else None)
+            record["outcome"] = (value.get("outcome") if value.get("outcome") in
+                                 ("requested", "acknowledged", "failed", "identity-rejected",
+                                  "validation-failed") else None)
+            with self._log_lock:
+                if not self._log_closed:
+                    self._queue_event(record)
+        except Exception:
+            pass
 
     def _record_transition(self):
         """Best-effort bounded metadata only; normal observation ticks do no I/O."""
@@ -425,6 +518,7 @@ class Automation:
         with self._state_lock:
             state = dict(self._state)
             diagnostic = dict(state["diagnostic"] or {})
+            playback_event = self._playback["eventId"]
         error = state["error"]
         if error is not None and error not in _LOG_ERRORS:
             error = "other-error"
@@ -472,7 +566,13 @@ class Automation:
                   "running": bool(state["running"]), "connected": bool(state["connected"]),
                   "state": play_state, "applied": applied,
                   "score": score if type(score) in (int, float) and 0 <= score <= 1 else None,
-                  "error": error, "diagnostic": clean}
+                  "error": error, "diagnostic": clean, "playbackEventId": playback_event,
+                  "visibilityRequestId": (self._visibility_output.last_request_id
+                                          if self._visibility_output is not None else None)}
+        self._queue_event(record)
+
+    def _queue_event(self, record):
+        # Caller holds _log_lock; a single bounded writer serves both record kinds.
         raw = (json.dumps(record, ensure_ascii=True, allow_nan=False, separators=(",", ":")) + "\n").encode("utf-8")
         if len(raw) > DIAGNOSTIC_LOG_BYTES:
             return
@@ -534,7 +634,7 @@ class Automation:
                     failure = "obs-disconnected"
                 # A terminal failure is logged after connection cleanup below;
                 # disk I/O must not delay shutting down a failed OBS session.
-                self._publish(session, detector, failure, record=not failure and state.running)
+                self._publish(session, detector, failure, record=not failure and state.running, observed=True)
                 if failure or not state.running:
                     break
                 cancel.wait(max(0, OBSERVATION_INTERVAL - (self.clock() - started)))
