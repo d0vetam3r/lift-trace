@@ -60,7 +60,7 @@ Lift Trace는 **INFINITAS 방송을 위한 모듈형 도구 생태계**의 입�
 | [INFINITAS Live Core](https://github.com/d0vetam3r/infinitas-live-core) | OBS 영상 보관·저장, 곡명 인식, 마이크 제어와 로컬 API | 비공개 |
 | [INFINITAS Remote](https://github.com/d0vetam3r/infinitas-remote) | 아이패드 웹 리모컨, 키 입력, Core 상태 표시와 저장·마이크 요청 | 비공개 |
 
-**Lift Trace는 Core와 Remote 없이 단독 실행할 수 있습니다.** 연동 구성에서는 Core의 OBS 어댑터가 오버레이의 표시 상태를 관찰하고, Remote의 PC 서버가 Core의 로컬 HTTP API를 호출합니다. Lift Trace가 Core를 호출하거나 다른 프로젝트를 설치·실행할 필요는 없습니다. Remote의 키 입력·버튼 설정·추천도 Core 없이 사용할 수 있으며, 영상저장·곡명 표시·OBS 마이크 제어에만 Core가 필요합니다. 두 연동 프로젝트는 Lift Trace 배포본에 포함되지 않습니다.
+**Lift Trace는 Core와 Remote 없이 단독 실행할 수 있습니다.** 연동 구성에서는 Core가 Lift Trace의 선택적 읽기 전용 플레이 시작 정보를 확인하고, OBS 어댑터가 오버레이의 표시 상태와 함께 영상 보관 시작을 판단합니다. 표시 상태만 바뀌는 것은 곡 시작이 아닙니다. Remote의 PC 서버는 Core의 로컬 HTTP API를 호출합니다. Lift Trace가 Core를 호출하거나 다른 프로젝트를 설치·실행할 필요는 없습니다. Remote의 키 입력·버튼 설정·추천도 Core 없이 사용할 수 있으며, 영상저장·곡명 표시·OBS 마이크 제어에만 Core가 필요합니다. 두 연동 프로젝트는 Lift Trace 배포본에 포함되지 않습니다.
 
 장기 목표는 독립 실행과 선택적 연동을 유지하면서 **INFINITAS 방송을 위한 모듈형 오픈소스 생태계**로 발전하는 것입니다. 현재 오픈소스로 공개된 프로젝트는 Lift Trace입니다. Live Core와 Remote는 비공개로 유지하며, 라이선스·포함 자료의 배포 조건을 검토한 뒤 별도 결정에 따라 공개 여부를 정합니다. 비공개 저장소 링크는 접근 권한이 있는 계정에서만 열 수 있습니다.
 

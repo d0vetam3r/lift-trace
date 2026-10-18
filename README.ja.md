@@ -60,7 +60,7 @@ Lift Traceは、**INFINITAS配信向けのモジュール型ツールエコシ�
 | [INFINITAS Live Core](https://github.com/d0vetam3r/infinitas-live-core) | OBS映像の一時保持・保存、曲名認識、マイク制御とローカルAPI | 非公開 |
 | [INFINITAS Remote](https://github.com/d0vetam3r/infinitas-remote) | iPad用Webリモコン、キー入力、Coreの状態表示と保存・マイク操作の要求 | 非公開 |
 
-**Lift TraceはCoreやRemoteなしで単独実行できます。** 連携時はCoreのOBSアダプターがオーバーレイの表示状態を監視し、RemoteのPCサーバーがCoreのローカルHTTP APIを呼び出します。Lift TraceからCoreを呼び出すことはなく、他のプロジェクトのインストールや起動も必要ありません。Remoteのキー入力・ボタン設定・楽曲推薦もCoreなしで利用でき、映像保存・曲名表示・OBSマイク制御にのみCoreが必要です。両連携プロジェクトはLift Traceの配布物には含まれません。
+**Lift TraceはCoreやRemoteなしで単独実行できます。** 連携時はCoreがLift Traceの任意の読み取り専用プレイ開始情報を確認し、OBSアダプターがオーバーレイの表示状態と合わせて映像保持の開始を判断します。表示状態の変化だけでは曲開始と見なしません。RemoteのPCサーバーはCoreのローカルHTTP APIを呼び出します。Lift TraceからCoreを呼び出すことはなく、他のプロジェクトのインストールや起動も必要ありません。Remoteのキー入力・ボタン設定・楽曲推薦もCoreなしで利用でき、映像保存・曲名表示・OBSマイク制御にのみCoreが必要です。両連携プロジェクトはLift Traceの配布物には含まれません。
 
 長期的には、独立した実行と任意の連携を維持しながら、**INFINITAS配信向けのモジュール型オープンソースエコシステム**へ発展させることを目指します。現在オープンソースとして公開しているのはLift Traceのみです。Live CoreとRemoteは非公開を維持し、ライセンスと同梱資料の配布条件を確認したうえで、将来の公開を別途判断します。非公開リポジトリのリンクはアクセス権のあるアカウントでのみ開けます。
 

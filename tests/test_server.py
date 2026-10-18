@@ -354,6 +354,24 @@ class ServerTests(unittest.TestCase):
         self.assertFalse(payload["status"]["connected"])
         self.assertEqual(self.request("POST", "/api/automation/unknown", {})[0], 404)
 
+    def test_playback_endpoint_is_memory_only_and_does_not_renew_observation(self):
+        connections = self.automation_fixture()
+        self.request("POST", "/api/automation/connect", {"password": "private-only"})
+        self.request("POST", "/api/automation/config", CONFIG)
+        automation = self.bridge.automation
+        before = automation.playback_status()
+        requests = list(connections[-1].calls)
+        with patch.object(automation, "_reference", side_effect=AssertionError("No image reads")), \
+                patch("infinitas_detector.validate_template", side_effect=AssertionError("No PNG decode")), \
+                self.bridge.lock:
+            for _ in range(3):
+                code, result = self.request("GET", "/api/automation/playback")
+                self.assertEqual(code, 200)
+                self.assertEqual(result, before)
+        self.assertEqual(connections[-1].calls, requests)
+        self.assertEqual(set(result), {"running", "connected", "state", "applied", "error", "playback"})
+        self.assertNotIn("private-only", json.dumps(result))
+
     def test_builtin_reference_starts_without_a_template_registration_route(self):
         self.automation_fixture()
         write_template(self.bridge.automation.default_template_path)

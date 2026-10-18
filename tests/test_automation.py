@@ -6,9 +6,10 @@ import tempfile
 import threading
 import time
 import unittest
+import uuid
 from unittest.mock import patch
 
-from auto_visibility import Observation, PlayState
+from auto_visibility import Observation, ObsSceneItems, PlayState, SceneItem
 from automation import Automation, AutomationError
 from obs_connection import ObsRequestError
 
@@ -137,6 +138,244 @@ class AutomationTests(unittest.TestCase):
 
     def writes(self, connection):
         return [data for kind, data in connection.calls if kind == "SetSceneItemEnabled"]
+
+    def playback_session(self):
+        """Run the real policy/publisher deterministically, without a worker."""
+        self.ready()
+        self.now = 0.0
+        self.automation.clock = lambda: self.now
+        self.automation.wall_clock = lambda: 1700000000.0 + self.now
+        sessions = []
+        with patch.object(self.automation, "_run", side_effect=lambda *args: sessions.append(args)):
+            self.automation.start()
+            self.automation._thread.join(timeout=1)
+        session, detector = sessions[0][:2]
+        self.addCleanup(session.stop)
+
+        def tick(at, state, *, stamp=None, error=None):
+            self.now = at
+            detector.last_error = error
+            detector.observe = lambda: Observation(state, at if stamp is None else stamp)
+            session.tick()
+            self.automation._publish(session, detector, observed=True)
+            return self.automation.status()["playback"]
+
+        return session, detector, tick
+
+    def test_playback_startup_playing_is_not_a_song_and_get_does_not_renew_proof(self):
+        _session, _detector, tick = self.playback_session()
+        self.assertEqual(self.automation.status()["playback"]["updatedAt"], 0)
+        tick(0, PlayState.PLAYING)
+        proof = tick(.2, PlayState.PLAYING)
+        self.assertTrue(self.automation.status()["applied"])
+        self.assertFalse(proof["active"])
+        self.assertIsNone(proof["eventId"])
+        self.now = 20
+        again = self.automation.status()["playback"]
+        self.assertEqual(again, proof)
+        again["targets"][0]["sourceUuid"] = "caller-mutation"
+        again["eventId"] = "caller-mutation"
+        self.assertEqual(self.automation.status()["playback"], proof)
+        with patch.object(self.automation, "_reference", side_effect=AssertionError("No image reads")):
+            lean = self.automation.playback_status()
+            self.assertEqual(lean["playback"], proof)
+            lean["playback"]["targets"].clear()
+            self.assertEqual(self.automation.playback_status()["playback"], proof)
+
+    def test_playback_issues_one_proof_per_confirmed_exit_entry_and_binds_targets(self):
+        _session, _detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        self.assertFalse(tick(.4, PlayState.PLAYING)["active"])
+        first = tick(.6, PlayState.PLAYING)
+        self.assertTrue(first["active"])
+        uuid.UUID(first["eventId"])
+        self.assertEqual(first["startedAt"], 1700000000.6)
+        self.assertEqual(first["targets"], CONFIG["targets"])
+        stable = tick(.8, PlayState.PLAYING)
+        self.assertEqual(stable["eventId"], first["eventId"])
+        self.assertEqual(stable["startedAt"], first["startedAt"])
+        self.assertGreater(stable["updatedAt"], first["updatedAt"])
+        tick(.9, PlayState.NOT_PLAYING)
+        self.assertFalse(tick(1.2, PlayState.NOT_PLAYING)["active"])
+        tick(1.3, PlayState.PLAYING)
+        second = tick(1.5, PlayState.PLAYING)
+        self.assertTrue(second["active"])
+        self.assertNotEqual(second["eventId"], first["eventId"])
+
+    def test_playback_unknown_external_visibility_and_cached_samples_cannot_mint_a_song(self):
+        _session, _detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        tick(.4, PlayState.PLAYING)
+        first = tick(.6, PlayState.PLAYING)
+        cached = tick(.7, PlayState.PLAYING, stamp=.6)
+        self.assertFalse(cached["active"])
+        self.assertEqual(cached["eventId"], first["eventId"])
+        self.assertFalse(tick(.8, PlayState.UNKNOWN)["active"])
+        # Another OBS writer changing a source never changes detector evidence.
+        self.connections[-1].items[1]["sceneItemEnabled"] = False
+        tick(.9, PlayState.PLAYING)
+        resumed = tick(1.1, PlayState.PLAYING)
+        self.assertTrue(resumed["active"])
+        self.assertEqual(resumed["eventId"], first["eventId"])
+
+    def test_playback_unavailable_stale_and_recovery_require_a_confirmed_exit(self):
+        _session, _detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        tick(.4, PlayState.PLAYING)
+        first = tick(.6, PlayState.PLAYING)
+        self.assertFalse(tick(.8, PlayState.UNKNOWN, error="capture-unavailable")["active"])
+        self.assertFalse(tick(1.4, PlayState.PLAYING, stamp=.7)["active"])
+        tick(1.5, PlayState.PLAYING)
+        resumed = tick(1.7, PlayState.PLAYING)
+        self.assertTrue(resumed["active"])
+        self.assertEqual(resumed["eventId"], first["eventId"])
+        tick(1.9, PlayState.UNKNOWN, error="capture-unavailable")
+        self.assertFalse(tick(3.8, PlayState.UNKNOWN, error="capture-unavailable")["active"])
+        self.assertFalse(tick(4.0, PlayState.PLAYING)["active"])
+        self.assertFalse(tick(4.2, PlayState.PLAYING)["active"])
+        tick(4.4, PlayState.NOT_PLAYING)
+        tick(4.7, PlayState.NOT_PLAYING)
+        tick(4.9, PlayState.PLAYING)
+        second = tick(5.1, PlayState.PLAYING)
+        self.assertTrue(second["active"])
+        self.assertNotEqual(second["eventId"], first["eventId"])
+
+    def test_playback_failed_visibility_and_stopped_or_restarted_session_are_not_active(self):
+        session, detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        tick(.4, PlayState.PLAYING)
+        self.connections[-1].fail_item = 3
+        proof = tick(.6, PlayState.PLAYING)
+        self.assertFalse(proof["active"])
+        self.assertIsNone(proof["eventId"])
+        self.connections[-1].fail_item = None
+        self.automation._publish(session, detector)
+        self.assertEqual(self.automation.status()["playback"]["updatedAt"], proof["updatedAt"])
+        with patch.object(self.automation, "_run"):
+            self.automation.start()
+            self.automation._thread.join(timeout=1)
+        reset = self.automation.status()["playback"]
+        self.assertIsNone(reset["eventId"])
+        self.assertFalse(reset["active"])
+        self.assertEqual(reset["updatedAt"], 0)
+
+    def test_playback_disconnect_disables_existing_proof_without_renewing_timestamp(self):
+        session, detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        tick(.4, PlayState.PLAYING)
+        first = tick(.6, PlayState.PLAYING)
+        self.connections[-1].close()
+        disconnected = self.automation.status()["playback"]
+        self.assertFalse(disconnected["active"])
+        self.assertEqual(disconnected["updatedAt"], first["updatedAt"])
+        session.stop()
+        self.automation._publish(session, detector)
+        self.assertFalse(self.automation.status()["playback"]["active"])
+        self.assertEqual(self.automation.status()["playback"]["updatedAt"], first["updatedAt"])
+
+    def test_slow_visibility_acknowledgment_cannot_publish_a_fresh_start_from_old_frame(self):
+        _session, _detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        tick(.4, PlayState.PLAYING)
+        original = self.connections[-1].request
+
+        def slow_request(kind, data):
+            result = original(kind, data)
+            if kind == "SetSceneItemEnabled":
+                self.now += .4
+            return result
+
+        with patch.object(self.connections[-1], "request", side_effect=slow_request):
+            delayed = tick(.6, PlayState.PLAYING)
+        self.assertTrue(self.automation.status()["applied"])
+        self.assertIsNone(delayed["eventId"])
+        self.assertFalse(delayed["active"])
+        self.assertFalse(tick(1.5, PlayState.PLAYING)["active"])
+        resumed = tick(1.7, PlayState.PLAYING)
+        self.assertTrue(resumed["active"])
+        self.assertEqual(resumed["startedAt"], 1700000001.7)
+
+    def test_visibility_diagnostics_distinguish_acknowledged_commands_and_unattributed_changes(self):
+        scene, source = str(uuid.uuid4()), str(uuid.uuid4())
+        item = {"sceneItemId": 2, "sourceUuid": source, "sceneItemEnabled": True,
+                "sourceName": "private-source-name"}
+        requests = []
+
+        def request(kind, data):
+            requests.append((kind, data))
+            if kind == "GetSceneItemList":
+                return {"sceneItems": [dict(item)]}
+            item["sceneItemEnabled"] = data["sceneItemEnabled"]
+            return {}
+
+        output = ObsSceneItems((SceneItem(scene, 2, source),), request,
+                               diagnostic=self.automation._record_visibility)
+        output.set_visible(False)
+        item["sceneItemEnabled"] = True  # Simulate an unidentified external writer.
+        output.set_visible(True)
+        self.wait_for_event_log()
+        records = [json.loads(line) for line in (self.root / "automation-events.jsonl").read_text().splitlines()]
+        self.assertEqual([record["outcome"] for record in records],
+                         ["requested", "acknowledged", "requested", "acknowledged"])
+        self.assertEqual(records[0]["origin"], "lift-command")
+        self.assertEqual(records[2]["origin"], "external-or-unattributed")
+        self.assertTrue(records[2]["beforeActual"])
+        self.assertFalse(records[2]["previousAcknowledged"])
+        self.assertEqual(records[2]["requestId"], records[3]["requestId"])
+        self.assertNotEqual(records[0]["requestId"], records[2]["requestId"])
+        for record in records:
+            self.assertEqual((record["sceneUuid"], record["sourceUuid"], record["sceneItemId"]),
+                             (scene, source, 2))
+        self.assertNotIn("private", json.dumps(records))
+        self.assertEqual([kind for kind, _data in requests],
+                         ["GetSceneItemList", "SetSceneItemEnabled"] * 2)
+
+    def test_visibility_diagnostic_failure_does_not_change_writes_and_log_rejects_private_fields(self):
+        requests = []
+        scene, source = str(uuid.uuid4()), str(uuid.uuid4())
+
+        def request(kind, data):
+            if kind == "GetSceneItemList":
+                return {"sceneItems": [{"sceneItemId": 2, "sourceUuid": source,
+                                        "sceneItemEnabled": False}]}
+            requests.append(data)
+            return {}
+
+        def bad_diagnostic(_value):
+            raise RuntimeError("private logger error")
+
+        output = ObsSceneItems((SceneItem(scene, 2, source),), request, diagnostic=bad_diagnostic)
+        output.set_visible(True)
+        self.assertEqual(len(requests), 1)
+        self.automation._record_visibility({"sceneUuid": "private-scene", "sourceUuid": "private-name",
+                                           "requestId": "private-password", "sceneItemId": 2**80,
+                                           "outcome": "private-error", "origin": "private-actor",
+                                           "desired": "private", "beforeActual": float("nan"),
+                                           "password": "private-password"})
+        self.wait_for_event_log()
+        text = (self.root / "automation-events.jsonl").read_text()
+        self.assertNotIn("private", text)
+        self.assertIsNone(json.loads(text)["sceneUuid"])
+
+    def test_playback_event_diagnostic_correlates_successful_visibility_request(self):
+        _session, _detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        tick(.4, PlayState.PLAYING)
+        proof = tick(.6, PlayState.PLAYING)
+        self.wait_for_event_log()
+        records = [json.loads(line) for line in (self.root / "automation-events.jsonl").read_text().splitlines()]
+        event = next(record for record in records if record.get("playbackEventId") == proof["eventId"])
+        commands = [record for record in records if record.get("requestId") == event["visibilityRequestId"]]
+        self.assertEqual(len(commands), 4)
+        self.assertTrue(all(record["desired"] is True for record in commands))
+        self.assertEqual(sum(record["outcome"] == "acknowledged" for record in commands), 2)
 
     def test_private_config_reloads_disarmed_without_any_connection_or_password_response(self):
         self.ready()
@@ -551,6 +790,7 @@ class AutomationTests(unittest.TestCase):
             self.automation.start()
             self.wait_for(lambda: self.automation.status()["applied"] is True)
             self.wait_for(lambda: len(writes) >= 3)  # Start, initial OFF, confirmed gameplay.
+            self.wait_for_event_log()  # Include the newly queued command acknowledgments.
             count = len(writes)
             time.sleep(.22)
             self.assertEqual(len(writes), count)

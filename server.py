@@ -316,6 +316,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, settings)
         elif path == "/api/automation":
             self._send(200, self.server.bridge.automation.status())
+        elif path == "/api/automation/playback":
+            self._send(200, self.server.bridge.automation.playback_status())
         elif path == "/api/automation/catalog":
             automation = self.server.bridge.automation
             try:
