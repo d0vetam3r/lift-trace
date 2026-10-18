@@ -60,7 +60,7 @@ import json, pathlib, sys
 sys.path.insert(0, 'experiments/obs-native-pacing')
 import live_bridge, live_observer
 print(json.dumps({
- 'files': [pathlib.Path(module.__file__).relative_to(pathlib.Path.cwd()).as_posix()
+ 'files': [pathlib.Path(module.__file__).resolve().relative_to(pathlib.Path.cwd().resolve()).as_posix()
            for module in (live_bridge, live_observer)],
  'samePipeline': live_observer.NativePipeline is live_bridge.NativePipeline,
  'inputServerImported': 'server' in sys.modules,
