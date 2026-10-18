@@ -12,6 +12,7 @@ Changes to the public overlay distribution are recorded here. Internal developme
 
 - Add an experimental C renderer using OBS frame time, with comparison tools and an optional launcher that reuses the existing controller/scratch code and settings UI. Observer failure leaves the original app running. Input history, automatic broadcast control and the four-minute save rule are unchanged. This experiment is excluded from normal app distribution.
 
+- Keep settings file writes and HTTP responses from blocking controller input. Preserve consecutive save ordering, previous settings on save failure, and current-input delivery after settings changes.
 - Apply the same two-second recovery grace to OBS temporary capture-unavailable responses. Brief outages preserve visibility; longer outages require confirmed non-gameplay before showing items again, preventing the same song from being treated as a new one.
 - Document the three projects' responsibilities, independent operation, optional integration, current availability and long-term direction toward a modular open-source ecosystem in the README.
 

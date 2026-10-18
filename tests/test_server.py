@@ -1,13 +1,16 @@
 import http.client
 import json
+import os
 from pathlib import Path
 import queue
 import tempfile
 import threading
 import time
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
-from server import Bridge, CLIENT_QUEUE_SIZE, LocalServer, MAX_BODY
+from server import Bridge, CLIENT_QUEUE_SIZE, Handler, LocalServer, MAX_BODY
 from automation import Automation
 from tests.test_automation import CONFIG, FakeConnection, FakeDetector, write_template
 
@@ -27,6 +30,198 @@ class FakeNative:
             return None
         return {"type": "input", "device": 0, "buttons": [self.down] + [False] * 6,
                 "axes": [0, 0], "time": time.time() * 1000}
+
+
+class SettingsTransactionTests(unittest.TestCase):
+    """Exercise slow disks and responses without sockets or physical devices."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name) / "data"
+        self.native = FakeNative()
+        self.bridge = Bridge(self.root, self.native, automation=SimpleNamespace(close=lambda: None))
+        self.addCleanup(self.bridge.close)
+
+    def subscribe_clean(self):
+        channel = self.bridge.subscribe()
+        self.drain(channel)
+        return channel
+
+    @staticmethod
+    def drain(channel):
+        events = []
+        while not channel.empty():
+            events.append(channel.get_nowait())
+        return events
+
+    @staticmethod
+    def run_worker(operation):
+        errors = []
+
+        def run():
+            try:
+                operation()
+            except BaseException as error:
+                errors.append(error)
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        return thread, errors
+
+    def join_worker(self, worker):
+        thread, errors = worker
+        thread.join(timeout=2)
+        self.assertFalse(thread.is_alive(), "Test worker did not finish")
+        self.assertEqual(errors, [])
+
+    def test_slow_save_keeps_sampling_raw_input_and_reseeds_current_state(self):
+        entered, release = threading.Event(), threading.Event()
+        original_write = Path.write_bytes
+        samples = queue.Queue()
+        current = {"type": "input", "device": 0, "buttons": [False] * 7,
+                   "axes": [0, 0], "time": 1000}
+
+        def poll(_device):
+            nonlocal current
+            try:
+                current = samples.get_nowait()
+            except queue.Empty:
+                pass
+            return current
+
+        def slow_write(path, contents):
+            if path == self.root / "settings.json.tmp":
+                entered.set()
+                if not release.wait(timeout=3):
+                    raise TimeoutError("Test did not release the settings write")
+            return original_write(path, contents)
+
+        self.native.poll = poll
+        self.bridge.select(0)
+        self.bridge.start()
+        channel = self.subscribe_clean()
+        settings = {"inputMode": "native", "buttonMap": list(range(7))}
+        with patch.object(Path, "write_bytes", slow_write):
+            worker = self.run_worker(lambda: self.bridge.save_settings(settings))
+            try:
+                self.assertTrue(entered.wait(timeout=1))
+                for down, timestamp in ((True, 1234.5), (False, 1299.75)):
+                    sample = {"type": "input", "device": 0, "buttons": [down] + [False] * 6,
+                              "axes": [.25, -.5], "time": timestamp}
+                    samples.put(sample)
+                    deadline = time.monotonic() + 1
+                    while True:
+                        observed = channel.get(timeout=max(.001, deadline - time.monotonic()))
+                        if observed == sample:
+                            break
+                        self.assertLess(time.monotonic(), deadline)
+                    self.assertEqual(observed, sample)  # Including unmodified input timestamps.
+                self.assertEqual(self.bridge.settings, {})
+                self.assertFalse((self.root / "settings.json").exists())
+            finally:
+                release.set()
+                self.join_worker(worker)
+        events = self.drain(channel)
+        self.assertEqual(events, [{"type": "settings", "settings": settings}, sample])
+        self.assertEqual(json.loads((self.root / "settings.json").read_bytes()), settings)
+
+    def test_failed_write_or_replace_keeps_previous_settings_and_demo(self):
+        previous = {"inputMode": "demo", "buttonMap": [6, 5, 4, 3, 2, 1, 0]}
+        self.bridge.save_settings(previous)
+        original = (self.root / "settings.json").read_bytes()
+        self.bridge.set_demo(True, now_ms=1000)
+        channel = self.subscribe_clean()
+        for target, attribute in ((Path, "write_bytes"), (os, "replace")):
+            with self.subTest(failure=attribute):
+                with patch.object(target, attribute, side_effect=OSError("Test disk failure")):
+                    with self.assertRaises(OSError):
+                        self.bridge.save_settings({"inputMode": "native"})
+                self.assertEqual((self.root / "settings.json").read_bytes(), original)
+                self.assertEqual(self.bridge.settings, previous)
+                self.assertTrue(self.bridge.demo_running)
+                self.assertTrue(channel.empty())
+
+    def test_concurrent_saves_remain_serialized_until_publication(self):
+        replaced_first, wrote_second, started_second = (threading.Event() for _ in range(3))
+        original_replace, original_write = os.replace, Path.write_bytes
+        first, second = {"width": 400}, {"width": 432}
+        channel = self.subscribe_clean()
+
+        def replace(source, destination):
+            original_replace(source, destination)
+            if json.loads(Path(destination).read_bytes()) == first:
+                replaced_first.set()
+
+        def write(path, contents):
+            if json.loads(contents) == second:
+                wrote_second.set()
+            return original_write(path, contents)
+
+        def save_second():
+            started_second.set()
+            self.bridge.save_settings(second)
+
+        workers = []
+        with patch.object(os, "replace", replace), patch.object(Path, "write_bytes", write):
+            try:
+                # Pause publication, while allowing disk I/O to finish. A later
+                # save must not overtake this transaction while it awaits input.
+                with self.bridge.lock:
+                    workers.append(self.run_worker(lambda: self.bridge.save_settings(first)))
+                    self.assertTrue(replaced_first.wait(timeout=1))
+                    workers.append(self.run_worker(save_second))
+                    self.assertTrue(started_second.wait(timeout=1))
+                    self.assertFalse(wrote_second.wait(timeout=.1))
+                    self.assertTrue(channel.empty())
+            finally:
+                for worker in workers:
+                    self.join_worker(worker)
+        self.assertEqual(self.drain(channel), [{"type": "settings", "settings": first},
+                                               {"type": "settings", "settings": second}])
+        self.assertEqual(self.bridge.settings, second)
+        self.assertEqual(json.loads((self.root / "settings.json").read_bytes()), second)
+
+    def test_slow_settings_response_keeps_input_lock_free_and_snapshot_stable(self):
+        entered, release = threading.Event(), threading.Event()
+        previous, following = {"buttonMap": [0, 1], "width": 400}, {"buttonMap": [1, 0], "width": 432}
+        self.bridge.save_settings(previous)
+        responses = []
+        handler = object.__new__(Handler)
+        handler.path = "/api/settings"
+        handler.server = SimpleNamespace(bridge=self.bridge)
+        handler._trusted = lambda: True
+
+        def send(status, payload):
+            entered.set()
+            if not release.wait(timeout=3):
+                raise TimeoutError("Test did not release the settings response")
+            responses.append((status, json.loads(json.dumps(payload))))
+
+        handler._send = send
+        worker = self.run_worker(handler.do_GET)
+        try:
+            self.assertTrue(entered.wait(timeout=1))
+            acquired = self.bridge.lock.acquire(timeout=.5)
+            self.assertTrue(acquired, "The response retained the input lock")
+            if acquired:
+                self.bridge.lock.release()
+            self.bridge.save_settings(following)
+        finally:
+            release.set()
+            self.join_worker(worker)
+        self.assertEqual(responses, [(200, previous)])
+        self.assertEqual(self.bridge.settings, following)
+
+    def test_committed_settings_do_not_alias_the_callers_nested_mapping(self):
+        channel = self.subscribe_clean()
+        settings = {"buttonMap": [0, 1], "label": "키 입력"}
+        self.bridge.save_settings(settings)
+        expected = json.loads((self.root / "settings.json").read_bytes())
+        settings["buttonMap"][0] = 31
+        settings["label"] = "changed"
+        self.assertEqual(self.bridge.settings, expected)
+        self.assertEqual(channel.get_nowait(), {"type": "settings", "settings": expected})
 
 
 class ServerTests(unittest.TestCase):
