@@ -39,6 +39,7 @@ class Bridge:
         self.automation = automation if automation is not None else Automation(data_dir)
         self.native = native if native is not None else NativeInput()
         self.lock = threading.RLock()
+        self._settings_write_lock = threading.Lock()
         self.clients: set[queue.Queue] = set()
         self.selected: int | None = None
         self.devices = self.native.scan()
@@ -194,17 +195,23 @@ class Bridge:
         contents = encode_json(value)
         if len(contents) > MAX_BODY:
             raise ValueError("Settings exceed the 32 KiB limit.")
-        with self.lock:
+        # Own the exact serialized snapshot. Published settings are replaced,
+        # never mutated, so readers may retain one while a later save completes.
+        settings = json.loads(contents)
+        # Serialize persistence through publication without blocking input on
+        # disk I/O. Only this path takes both locks, always in this order.
+        with self._settings_write_lock:
             self.data_dir.mkdir(parents=True, exist_ok=True)
             temporary = self.data_dir / "settings.json.tmp"
             temporary.write_bytes(contents)
             os.replace(temporary, self.data_dir / "settings.json")
-            self.settings = value
-            if value.get("inputMode") == "native" and self.demo_running:
-                self.set_demo(False)
-            self.broadcast({"type": "settings", "settings": value})
-            if self.latest is not None:
-                self.broadcast(self.latest)
+            with self.lock:
+                self.settings = settings
+                if settings.get("inputMode") == "native" and self.demo_running:
+                    self.set_demo(False)
+                self.broadcast({"type": "settings", "settings": settings})
+                if self.latest is not None:
+                    self.broadcast(self.latest)
 
     def start(self) -> None:
         self.poll_thread = threading.Thread(target=self._poll, name="controller-input", daemon=True)
@@ -305,7 +312,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, self.server.bridge.status())
         elif path == "/api/settings":
             with self.server.bridge.lock:
-                self._send(200, self.server.bridge.settings)
+                settings = self.server.bridge.settings
+            self._send(200, settings)
         elif path == "/api/automation":
             self._send(200, self.server.bridge.automation.status())
         elif path == "/api/automation/catalog":
