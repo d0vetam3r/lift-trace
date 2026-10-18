@@ -2,7 +2,7 @@
 
 [한국어](README.ko.md) · [日本語](README.ja.md) · [English](README.md)
 
-This is a synthetic rendering experiment, **not a replacement gameplay overlay**.
+This is an optional rendering experiment, **not a released replacement overlay**.
 It tests whether drawing input-note geometry directly during OBS composition
 avoids the repeated-frame/catch-up pattern observed in browser-source output.
 Nothing in the normal Lift Trace executable, settings UI, input recorder,
@@ -13,9 +13,52 @@ is not included in the normal application distribution.
 
 See [Measured results](RESULTS.md) for the recorded comparison and its limits.
 
+## Live input and the existing settings UI (Windows)
+
+The optional launcher now observes the existing `Bridge.subscribe()` stream.
+Its owned Node process imports the unchanged `web/client.js` `InputClient`,
+`TrailEngine`, and `ScratchTracker`. It receives the same selected-controller
+samples, key mapping, scratch axis/inversion/threshold/stop settings, resets,
+and UI settings updates as the browser. It never writes back input records.
+
+```text
+python experiments/obs-native-pacing/live_launcher.py --node PATH_TO_NODE_EXE --channel lift-test
+```
+
+This experiment needs Python 3.10+, Node 22+ and a separately built native plugin.
+Normal Lift Trace still runs without Node, the plugin, Live Core or Remote.
+The launcher serves the **existing** UI at `http://127.0.0.1:8766/` and defaults to
+isolated `artifacts/native-live-data` settings. Select the controller and use the
+existing settings controls there. A copied settings JSON can be imported with
+the existing UI; no second native rendering settings file is introduced.
+Do not point simultaneous launchers at the same data directory.
+
+Set the experimental OBS source's `Live channel` property to `lift-test`.
+A separate connection worker retries unavailable publishers every 100ms,
+so either side can start first. Diagnostics default off in live mode;
+the existing synthetic comparison keeps them on. Restarting the producer with
+the same channel resumes an already attached source with a new session.
+
+The bridge publishes bounded snapshots through Windows session-local shared
+memory. OBS tries the mutex with **zero wait**, then draws from unchanged event
+timestamps using its own video-frame clock. A stalled, invalid or exited producer
+clears input marks within one second; the existing UI and controller polling
+continue. The observer ticks scratch-stop detection every 4ms, so its grace-period
+release observation can precede a 60Hz browser callback by up to about one frame.
+Raw controller timestamps and the existing grace policy are unchanged.
+
+Keyboard head/body, short-input scaling, delay, 1P/2P, size, speed, guides and
+background come from the existing UI. Scratch always retains its body and
+direction colors/arrow, independent of keyboard shortening. OBS scene placement,
+automatic visibility and recording integration are not switched to this source
+by the launcher. Test it in a disposable profile before any production migration.
+Actual controller gameplay and end-to-end input latency remain separate checks;
+see the live results in [RESULTS.md](RESULTS.md) before interpreting automated fixtures as hardware tests.
+
 The source registers `lift_trace_native_pacing`. Build it as a separate OBS plugin
 using the matching official OBS SDK (`obs-module.h`, `util/platform.h`, and
-libobs). The C code uses C11 atomics; it does not require C++ or a worker thread.
+libobs). The C code uses C11 atomics and a small Windows connection worker;
+it does not require C++. Connection handles are opened outside OBS's video thread.
 Load it only in a disposable OBS installation with an isolated profile and scene.
 Do not copy an experimental DLL into a normal OBS installation or release package.
 The repository does not vendor OBS headers, libraries, or compiled binaries.
@@ -25,17 +68,16 @@ header; that header and local toolchain are not part of this experiment's source
 
 ## Boundary
 
-- Only synthetic keyboard events are rendered: a press every 120 ms, starting at
+- With an empty live channel, synthetic keyboard events are rendered: a press every 120 ms, starting at
   index -3, lane `positiveMod(index, 7) + 1`, with a 40 ms hold. There is no
-  controller access, scratch implementation, input subscription, or real UI bridge.
+  controller access in this baseline mode. Live input uses the optional observer above.
 - Existing normalized settings can be supplied as an OBS data object named
   `lift_settings`. This is a snapshot supplied by the test harness, not a second
-  user settings file. A future integration would send these same settings from
-  the existing UI; this experiment does not implement that integration.
+  user settings file. Live mode takes normalized settings from the existing UI stream.
 - `video_tick` takes the OBS video-frame clock and a settings snapshot. Rendering
   uses that snapshot rather than a separately scheduled browser animation clock.
-  Settings updates are protected by a short lock; no I/O or graphics call occurs
-  while the lock is held. Zero/backwards clocks are handled without negative age.
+  Settings updates use a short lock; file/pipe I/O and graphics stay outside it.
+  Live shared-memory acquisition never waits. Zero/backwards synthetic clocks are handled without negative age.
 - The native geometry uses the existing lane proportions, speed calculation,
   delayed display, head/body switch, and finished-short-input display rule.
   Event timestamps remain independent of those visual options. Work is bounded
@@ -44,7 +86,7 @@ header; that header and local toolchain are not part of this experiment's source
   antialiasing, color handling, scratch marks, or transparency in every OBS mode.
 
 Defaults are 432 × 290 notes plus 100 diagnostic pixels, 12 px heads, and
-849.9266666666666 px/s. The seven keyboard lanes are used; scratch has only its
+849.9266666666666 px/s. In the synthetic baseline the seven keyboard lanes are used; scratch has only its
 reserved lane width. For comparable footage, use 432 × 390 at 60 fps, with no
 rescaling, and an opaque background. The diagnostic barcode needs at least 336
 pixels of width; other normalized widths are not part of this pacing comparison.
@@ -60,7 +102,7 @@ Each row has white/black calibration rectangles at x=308 and x=324.
 | 1 | OBS video-tick sequence |
 | 2 | OBS animation elapsed time in tenths of a millisecond |
 | 3 | Tick callback OS elapsed time in tenths of a millisecond |
-| 4 | Animation elapsed time in tenths of a millisecond, same as row 2 |
+| 4 | Synthetic: same as row 2; live: UTC animation milliseconds × 10, wrapped to 24 bits |
 | 5 | Previous render callback CPU cost in microseconds |
 
 Row 2 begins at zero on the first initialized OBS video tick; row 3 begins at
