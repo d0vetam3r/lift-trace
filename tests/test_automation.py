@@ -263,6 +263,47 @@ class AutomationTests(unittest.TestCase):
         self.assertFalse(reset["active"])
         self.assertEqual(reset["updatedAt"], 0)
 
+    def test_late_unavailable_captures_do_not_renew_or_replace_playback_start(self):
+        _session, _detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        tick(.4, PlayState.PLAYING)
+        first = tick(.6, PlayState.PLAYING)
+        original_writes = list(self.writes(self.connections[-1]))
+
+        missing = tick(1.307, PlayState.UNKNOWN, stamp=.7, error="capture-unavailable")
+        self.assertFalse(missing["active"])
+        self.assertEqual((missing["eventId"], missing["startedAt"]),
+                         (first["eventId"], first["startedAt"]))
+        self.assertIsNone(self.automation.status()["error"])
+        self.assertTrue(self.automation.status()["applied"])
+        tick(1.4, PlayState.PLAYING)
+        resumed = tick(1.6, PlayState.PLAYING)
+        self.assertTrue(resumed["active"])
+        self.assertEqual((resumed["eventId"], resumed["startedAt"]),
+                         (first["eventId"], first["startedAt"]))
+        self.assertEqual(self.writes(self.connections[-1]), original_writes)
+
+        # One outage budget applies even when every unavailable response is late.
+        tick(2.307, PlayState.UNKNOWN, stamp=1.7, error="capture-unavailable")
+        expired = tick(3.608, PlayState.UNKNOWN, stamp=3.0, error="capture-unavailable")
+        self.assertFalse(expired["active"])
+        self.assertTrue(self.automation.status()["running"])
+        self.assertIsNone(self.automation.status()["error"])
+        self.assertFalse(self.automation.status()["applied"])
+        for at in (3.7, 3.9):
+            recovered = tick(at, PlayState.PLAYING)
+            self.assertFalse(recovered["active"])
+            self.assertEqual((recovered["eventId"], recovered["startedAt"]),
+                             (first["eventId"], first["startedAt"]))
+        tick(4.1, PlayState.NOT_PLAYING)
+        tick(4.4, PlayState.NOT_PLAYING)
+        tick(4.5, PlayState.PLAYING)
+        second = tick(4.7, PlayState.PLAYING)
+        self.assertTrue(second["active"])
+        self.assertNotEqual(second["eventId"], first["eventId"])
+        self.assertEqual(second["startedAt"], 1700000004.7)
+
     def test_playback_disconnect_disables_existing_proof_without_renewing_timestamp(self):
         session, detector, tick = self.playback_session()
         tick(0, PlayState.NOT_PLAYING)
@@ -673,6 +714,43 @@ class AutomationTests(unittest.TestCase):
                              [False, False, True, True, False, False, True, True])
             self.assertEqual(len(self.connections), 1)
             self.assertEqual(len(self.detectors), 1)
+            self.automation.stop()
+
+    def test_late_unavailable_capture_keeps_worker_and_recovers_without_reconnect(self):
+        connection = self.ready()
+        profile, observe = self.scripted_capture()
+
+        def capture(detector):
+            sample = observe(detector)
+            if sample.state is PlayState.UNKNOWN:
+                detector.last_error = "capture-unavailable"
+            return sample
+
+        with patch.object(FakeDetector, "observe", capture):
+            self.automation.start()
+            self.wait_for(lambda: self.automation.status()["applied"] is False)
+            self.advance_capture(profile, PlayState.PLAYING, 100.25, .02)
+            worker = self.automation._thread
+            detector = self.detectors[-1]
+            writes = list(self.writes(connection))
+            self.advance_capture(profile, PlayState.UNKNOWN, 100.35, .607, .607)
+            status = self.automation.status()
+            self.assertTrue(status["running"])
+            self.assertTrue(status["connected"])
+            self.assertTrue(status["applied"])
+            self.assertIsNone(status["error"])
+            self.assertEqual(status["diagnostic"]["observationReason"], "stale-observation")
+            self.assertEqual(status["diagnostic"]["detectorError"], "capture-unavailable")
+            self.assertEqual(status["diagnostic"]["recoveryState"], "waiting-for-frame")
+            self.advance_capture(profile, PlayState.PLAYING, 101.0, .03)
+            self.advance_capture(profile, PlayState.PLAYING, 101.25, .04)
+            self.assertIsNone(self.automation.status()["diagnostic"]["recoveryState"])
+            self.assertIs(self.automation._thread, worker)
+            self.assertTrue(worker.is_alive())
+            self.assertFalse(detector.stopped)
+            self.assertEqual(len(self.connections), 1)
+            self.assertEqual(len(self.detectors), 1)
+            self.assertEqual(self.writes(connection), writes)
             self.automation.stop()
 
     def test_automation_uses_one_worker_with_a_five_hertz_capture_interval(self):
