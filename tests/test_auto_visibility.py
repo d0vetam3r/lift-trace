@@ -123,6 +123,90 @@ class VisibilityTests(unittest.TestCase):
         self.assertEqual(self.writes, original_writes)
         self.assertFalse(self.observe(1.0, PlayState.NOT_PLAYING).applied)
 
+    def test_late_unavailable_capture_preserves_visibility_without_becoming_fresh(self):
+        self.play()
+        original_writes = list(self.writes)
+        self.detector.last_error = "capture-unavailable"
+        status = self.observe(.907, PlayState.UNKNOWN, stamp=.3)
+        self.assertTrue(status.running)
+        self.assertTrue(status.applied)
+        self.assertIsNone(status.error)
+        self.assertEqual(self.session.observation_reason, "stale-observation")
+        self.assertAlmostEqual(self.session.observation_age, .607)
+        self.assertEqual(self.session.recovery_state, "waiting-for-frame")
+        self.assertFalse(self.session.observation_fresh)
+        self.assertIsNone(self.session.observation_at)
+        self.detector.last_error = None
+        self.assertTrue(self.observe(1.0, PlayState.PLAYING).applied)
+        self.assertEqual(self.session.recovery_state, "waiting-for-frame")
+        self.assertTrue(self.observe(1.2, PlayState.PLAYING).applied)
+        self.assertIsNone(self.session.recovery_state)
+        self.assertEqual(self.writes, original_writes)
+        self.assertEqual(self.detector.starts, 1)
+        self.assertEqual(self.detector.stops, 0)
+
+    def test_repeated_late_unavailable_captures_share_grace_and_require_fresh_exit(self):
+        self.play()
+        self.detector.last_error = "capture-unavailable"
+        for at, stamp in ((.907, .3), (1.6, .8), (2.2, 1.4), (2.3, 1.6), (3.0, 1.6)):
+            status = self.observe(at, PlayState.UNKNOWN, stamp=stamp)
+            self.assertTrue(status.running)
+            self.assertIsNone(status.error)
+            self.assertEqual(status.applied, at <= 2.2)
+        self.assertEqual(self.writes, [(2, False), (3, False), (2, True), (3, True),
+                                       (2, False), (3, False)])
+        self.assertEqual(self.session.recovery_state, "waiting-for-not-playing")
+        self.detector.last_error = None
+        self.assertFalse(self.observe(3.1, PlayState.PLAYING).applied)
+        self.assertFalse(self.observe(3.4, PlayState.PLAYING).applied)
+        self.observe(3.5, PlayState.NOT_PLAYING)
+        self.observe(3.8, PlayState.NOT_PLAYING)
+        self.assertIsNone(self.session.recovery_state)
+        self.assertFalse(self.observe(3.9, PlayState.PLAYING).applied)
+        self.assertTrue(self.observe(4.1, PlayState.PLAYING).applied)
+        self.assertEqual(self.detector.starts, 1)
+        self.assertEqual(self.detector.stops, 0)
+
+    def test_late_unavailable_capture_does_not_show_a_cold_session_or_confirm_entry(self):
+        for pending_entry in (False, True):
+            with self.subTest(pending_entry=pending_entry):
+                self.session.stop()
+                self.now = 0
+                self.session.start()
+                self.detector.last_error = None
+                if pending_entry:
+                    self.observe(.1, PlayState.PLAYING)
+                self.detector.last_error = "capture-unavailable"
+                status = self.observe(.907, PlayState.UNKNOWN, stamp=.3)
+                self.assertIsNone(status.error)
+                self.assertFalse(status.applied)
+                self.detector.last_error = None
+                self.assertFalse(self.observe(1.0, PlayState.PLAYING).applied)
+                self.assertTrue(self.observe(1.2, PlayState.PLAYING).applied)
+
+    def test_late_unavailable_capture_preserves_timestamp_ordering_checks(self):
+        self.play()
+        self.detector.last_error = "capture-unavailable"
+        self.assertIsNone(self.observe(.907, PlayState.UNKNOWN, stamp=.3).error)
+        status = self.observe(1.0, PlayState.UNKNOWN, stamp=.29)
+        self.assertEqual(status.error, "detector-observation-invalid")
+        self.assertEqual(self.session.observation_reason, "regressed-timestamp")
+        self.assertFalse(status.applied)
+
+    def test_unavailable_capture_with_invalid_timestamps_still_fails_closed(self):
+        for stamp in (-1.0, .1, 2.0, float("nan"), float("inf")):
+            with self.subTest(stamp=stamp):
+                self.session.stop()
+                self.now = 0
+                self.session.start()
+                self.detector.last_error = None
+                self.play()
+                self.detector.last_error = "capture-unavailable"
+                status = self.observe(1.0, PlayState.UNKNOWN, stamp=stamp)
+                self.assertEqual(status.error, "detector-observation-invalid")
+                self.assertFalse(status.applied)
+                self.assertIsNone(self.session.recovery_state)
+
     def test_long_unavailable_capture_cannot_create_a_second_entry_in_the_same_song(self):
         self.observe(0, PlayState.PLAYING)
         self.observe(.2, PlayState.PLAYING)
@@ -239,8 +323,9 @@ class VisibilityTests(unittest.TestCase):
 
     def test_late_unknown_malformed_and_regressed_samples_still_fail_closed(self):
         for state, stamp, detector_error in (
-                (PlayState.UNKNOWN, .4, "capture-unavailable"),
+                (PlayState.UNKNOWN, .4, None),
                 (PlayState.UNKNOWN, .4, "invalid-screenshot"),
+                (PlayState.PLAYING, .4, "capture-unavailable"),
                 (PlayState.PLAYING, .4, "invalid-screenshot"),
                 (PlayState.PLAYING, .1, None)):
             with self.subTest(state=state, detector_error=detector_error):

@@ -6,6 +6,7 @@ Changes to the public overlay distribution are recorded here. Internal developme
 
 ## Unreleased
 
+- Keep automatic visibility polling when a temporary capture-unavailable response arrives late, using the existing recovery grace. Late failures never count as fresh frames or new song starts; long outages still require non-play confirmation, and invalid timestamps, malformed images and transport errors retain their existing handling.
 - Add optional read-only playback proofs with unique IDs only after confirmed non-play→play transitions. Visibility changes, capture faults and startup during play do not create new song events; lightweight polling reads no images or files. Correlate visibility commands with observed values and outcomes in bounded logs while preserving independent operation and input processing.
 - Keep settings file writes and HTTP responses from blocking controller input. Preserve consecutive save ordering, previous settings on save failure, and current-input delivery after settings changes.
 - Apply the same two-second recovery grace to OBS temporary capture-unavailable responses. Brief outages preserve visibility; longer outages require confirmed non-gameplay before showing items again, preventing the same song from being treated as a new one.

@@ -130,9 +130,9 @@ class VisibilityStatus:
 class VisibilitySession:
     """Only fresh, confirmed gameplay enables targets.
 
-    A classified but late frame is discarded. A fresh, known unavailable capture
-    shares that recovery budget. Existing visibility can survive a short capture
-    stall; a longer stall hides it and requires a fresh exit
+    A classified but late frame is discarded. A known unavailable capture,
+    including a late response, shares that recovery budget. Existing visibility
+    can survive a short capture stall; a longer stall hides it and requires a fresh exit
     before another entry. This prevents a capture stall from looking like a
     new song to optional consumers of the overlay's visibility.
 
@@ -339,12 +339,17 @@ class VisibilitySession:
                 self.observation_exception_code = code
         recoverable_stale = False
         if self.observation_reason == "stale-observation":
-            # Missing/malformed images and transport errors are not a slow but
-            # otherwise valid classified frame, even when their response is late.
+            # Timestamp validity and ordering already passed. A known temporary
+            # capture failure can arrive late too; malformed images and transport
+            # errors still fail closed. Neither case supplies a fresh frame.
             try:
-                recoverable_stale = (observation.state in (PlayState.PLAYING, PlayState.NOT_PLAYING)
-                                     and math.isfinite(now) and self.observation_age is not None
-                                     and getattr(self.detector, "last_error", None) is None)
+                detector_error = getattr(self.detector, "last_error", None)
+                classified = (observation.state in (PlayState.PLAYING, PlayState.NOT_PLAYING)
+                              and detector_error is None)
+                unavailable = (observation.state is PlayState.UNKNOWN
+                               and detector_error == "capture-unavailable")
+                recoverable_stale = (math.isfinite(now) and self.observation_age is not None
+                                     and (classified or unavailable))
             except Exception:
                 pass
         self.error = None if valid or recoverable_stale else "detector-observation-invalid"
