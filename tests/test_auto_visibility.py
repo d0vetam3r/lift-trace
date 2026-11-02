@@ -4,6 +4,7 @@ from __future__ import annotations
 import unittest
 
 from auto_visibility import Observation, ObsSceneItems, PlayState, SceneItem, VisibilitySession
+from obs_connection import ObsRequestError
 from tools.replay_visibility import EXAMPLE, replay
 
 
@@ -403,13 +404,149 @@ class VisibilityTests(unittest.TestCase):
         self.observe(0.6, PlayState.PLAYING)
         self.assertTrue(self.observe(0.85, PlayState.PLAYING).applied)
 
-    def test_changed_target_aborts_before_any_item_is_written(self):
+    def test_changed_target_is_skipped_while_normal_target_keeps_working(self):
         self.items[-1]["sourceUuid"] = "replacement-camera"
         status = self.session.tick()
-        self.assertFalse(status.running)
-        self.assertIsNone(status.applied)
-        self.assertEqual(status.error, "obs-apply-failed")
+        self.assertTrue(status.running)
+        self.assertFalse(status.applied)
+        self.assertIsNone(status.error)
+        self.observe(.1, PlayState.PLAYING)
+        self.assertTrue(self.observe(.3, PlayState.PLAYING).applied)
+        self.observe(.4, PlayState.NOT_PLAYING)
+        self.assertFalse(self.observe(.7, PlayState.NOT_PLAYING).applied)
+        self.assertEqual(self.writes, [(2, False), (2, True), (2, False)])
+        self.assertEqual(self.output.skipped_targets, (SceneItem("scene", 3, "camera"),))
+        self.assertEqual(self.output.applied_targets, (SceneItem("scene", 2, "game"),))
+
+    def test_deleted_camera_does_not_stop_normal_targets_or_return_after_undo(self):
+        self.play()
+        camera = self.items.pop()
+        self.observe(.4, PlayState.NOT_PLAYING)
+        self.assertFalse(self.observe(.7, PlayState.NOT_PLAYING).applied)
+        self.items.append(camera)  # An undo is not permission to adopt it mid-session.
+        self.observe(.8, PlayState.PLAYING)
+        self.assertTrue(self.observe(1.0, PlayState.PLAYING).applied)
+        self.assertEqual(self.writes[-2:], [(2, False), (2, True)])
+        self.assertTrue(self.session.running)
+        self.assertIsNone(self.session.error)
+        self.session.stop()
+        self.now = 1.1
+        self.session.start()
+        self.observe(1.1, PlayState.PLAYING)
+        self.assertEqual(self.writes[-2:], [(2, False), (3, False)])
+        self.assertEqual(self.output.skipped_targets, ())
+
+    def test_all_deleted_targets_keep_polling_without_success_or_repeated_queries(self):
+        self.items[:] = self.items[:1]
+        self.play_without_targets()
+        self.assertEqual(self.output.applied_targets, ())
+        self.assertEqual(len(self.output.skipped_targets), 2)
         self.assertEqual(self.writes, [])
+        request_id = self.output.last_request_id
+        self.observe(.8, PlayState.NOT_PLAYING)
+        self.observe(1.2, PlayState.NOT_PLAYING)
+        self.assertEqual(self.output.last_request_id, request_id)
+
+    def play_without_targets(self):
+        self.observe(0, PlayState.PLAYING)
+        status = self.observe(.25, PlayState.PLAYING)
+        self.assertTrue(status.running)
+        self.assertIsNone(status.error)
+        self.assertIsNone(status.applied)
+
+    def test_deleted_target_reports_once_and_clears_previous_acknowledgment(self):
+        self.items.pop()
+        records = []
+        self.output.diagnostic = records.append
+        self.play()
+        self.observe(.4, PlayState.NOT_PLAYING)
+        self.observe(.7, PlayState.NOT_PLAYING)
+        rejected = [row for row in records if row["outcome"] == "identity-rejected"]
+        self.assertEqual(len(rejected), 1)
+        self.assertEqual(rejected[0]["sceneItemId"], 3)
+        self.assertNotIn(SceneItem("scene", 3, "camera"), self.output._acknowledged)
+
+    def test_explicit_missing_item_write_race_skips_only_that_target(self):
+        original = self.output.request
+
+        def request(kind, data):
+            if kind == "SetSceneItemEnabled" and data["sceneItemId"] == 2:
+                self.items[:] = [item for item in self.items if item["sceneItemId"] != 2]
+                raise ObsRequestError(kind, 600)
+            return original(kind, data)
+
+        self.output.request = request
+        self.play()
+        self.assertEqual(self.writes, [(3, False), (3, True)])
+        self.assertEqual(self.output.applied_targets, (SceneItem("scene", 3, "camera"),))
+        self.assertEqual(self.output.skipped_targets, (SceneItem("scene", 2, "game"),))
+
+    def test_not_found_write_response_with_still_valid_target_is_not_swallowed(self):
+        original = self.output.request
+
+        def request(kind, data):
+            if kind == "SetSceneItemEnabled":
+                raise ObsRequestError(kind, 600)
+            return original(kind, data)
+
+        self.output.request = request
+        self.assertEqual(self.session.tick().error, "obs-apply-failed")
+        self.assertEqual(self.output.skipped_targets, ())
+        self.assertEqual(self.writes, [])
+
+    def test_whole_scene_lost_during_write_is_not_treated_as_a_deleted_camera(self):
+        original = self.output.request
+        deleted = False
+
+        def request(kind, data):
+            nonlocal deleted
+            if kind == "SetSceneItemEnabled":
+                deleted = True
+                raise ObsRequestError(kind, 600)
+            if deleted:
+                raise ObsRequestError(kind, 600)
+            return original(kind, data)
+
+        self.output.request = request
+        self.assertEqual(self.session.tick().error, "obs-apply-failed")
+        self.assertEqual(self.output.skipped_targets, ())
+
+    def test_other_write_rejections_and_get_scene_errors_remain_fatal(self):
+        for kind, code in (("SetSceneItemEnabled", 500), ("GetSceneItemList", 600)):
+            with self.subTest(kind=kind, code=code):
+                self.session.stop()
+                self.now = 0
+                self.session.start()
+                original = self.output.request
+
+                def request(request_kind, data):
+                    if request_kind == kind:
+                        raise ObsRequestError(request_kind, code)
+                    return original(request_kind, data)
+
+                self.output.request = request
+                try:
+                    status = self.session.tick()
+                    self.assertFalse(status.running)
+                    self.assertEqual(status.error, "obs-apply-failed")
+                    self.assertEqual(self.output.applied_targets, ())
+                finally:
+                    self.output.request = original
+
+    def test_malformed_and_ambiguous_scene_lists_are_not_treated_as_deleted_targets(self):
+        for rows in (None, [{"sceneItemId": 2}], [{"sourceUuid": "game"}],
+                     [{"sceneItemId": 2, "sourceUuid": "game"}] * 2):
+            with self.subTest(rows=rows):
+                self.session.stop()
+                self.now = 0
+                self.session.start()
+                original = self.output.request
+                self.output.request = lambda kind, data: {"sceneItems": rows}
+                try:
+                    self.assertEqual(self.session.tick().error, "obs-apply-failed")
+                    self.assertEqual(self.output.skipped_targets, ())
+                finally:
+                    self.output.request = original
 
     def test_partial_failure_is_not_success_and_requires_explicit_restart(self):
         self.fail_item = 3

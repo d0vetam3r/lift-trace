@@ -17,6 +17,8 @@ import time
 import uuid
 from typing import Callable, Protocol
 
+from obs_connection import ObsRequestError
+
 
 CAPTURE_STALL_GRACE = 2.0
 TIME_EPSILON = 1e-9  # Arithmetic rounding only; never relax timestamp validity.
@@ -55,9 +57,10 @@ class SceneItem:
 class ObsSceneItems:
     """Control explicitly selected top-level scene items, never source names.
 
-    All identities are checked before the first write. OBS requests are not an
-    atomic transaction: a scene edit or disconnect can still interrupt a batch.
-    A raised error therefore means the actual visibility may be partly changed.
+    All identities are checked before the first write. Missing/replaced targets
+    are quarantined until an explicit new session; other targets keep working.
+    OBS requests are not atomic: transport failures can still interrupt a batch.
+    A raised error therefore means actual visibility may be partly changed.
     Groups and nested-scene traversal are deliberately outside this first scope.
     """
     def __init__(self, targets: tuple[SceneItem, ...], request: Callable[[str, dict], dict],
@@ -70,6 +73,46 @@ class ObsSceneItems:
         self.diagnostic = diagnostic
         self.last_request_id: str | None = None
         self._acknowledged: dict[SceneItem, bool] = {}
+        self._skipped: set[SceneItem] = set()
+        self.applied_targets: tuple[SceneItem, ...] = ()
+
+    @property
+    def remaining_targets(self) -> tuple[SceneItem, ...]:
+        return tuple(target for target in self.targets if target not in self._skipped)
+
+    @property
+    def skipped_targets(self) -> tuple[SceneItem, ...]:
+        return tuple(target for target in self.targets if target in self._skipped)
+
+    def reset(self) -> None:
+        self._skipped.clear()
+        self._acknowledged.clear()
+        self.applied_targets = ()
+
+    def _skip(self, target: SceneItem, visible: bool) -> None:
+        self._report(target, visible, None, "identity-rejected")
+        self._skipped.add(target)
+        self._acknowledged.pop(target, None)
+
+    @staticmethod
+    def _check_items(items) -> list[dict]:
+        if (not isinstance(items, list)
+                or any(not isinstance(item, dict)
+                       or type(item.get("sceneItemId")) is not int or item["sceneItemId"] < 0
+                       or not isinstance(item.get("sourceUuid"), str) or not item["sourceUuid"]
+                       for item in items)):
+            raise ValueError("Invalid scene item response")
+        if len({item["sceneItemId"] for item in items}) != len(items):
+            raise ValueError("Ambiguous scene item response")
+        return items
+
+    @staticmethod
+    def _match(items, target: SceneItem):
+        item = next((item for item in items if item["sceneItemId"] == target.item_id), None)
+        if (item is None or item["sourceUuid"] != target.source_uuid or item.get("isGroup")
+                or item.get("sourceType") == "OBS_SOURCE_TYPE_SCENE"):
+            return None
+        return item
 
     def _report(self, target, visible, actual, outcome):
         if self.diagnostic is None:
@@ -90,7 +133,8 @@ class ObsSceneItems:
         scenes = {}
         actual = {}
         self.last_request_id = str(uuid.uuid4())
-        for target in self.targets:
+        self.applied_targets = ()
+        for target in self.remaining_targets:
             if target.scene_uuid not in scenes:
                 try:
                     scenes[target.scene_uuid] = self.request(
@@ -98,25 +142,43 @@ class ObsSceneItems:
                 except Exception:
                     self._report(target, visible, None, "validation-failed")
                     raise
-            matches = [item for item in scenes[target.scene_uuid]
-                       if item.get("sceneItemId") == target.item_id]
-            if len(matches) != 1 or matches[0].get("sourceUuid") != target.source_uuid:
-                self._report(target, visible, None, "identity-rejected")
-                raise ValueError("Selected scene item changed; select targets again")
-            value = matches[0].get("sceneItemEnabled")
+            items = self._check_items(scenes[target.scene_uuid])
+            item = self._match(items, target)
+            if item is None:
+                self._skip(target, visible)
+                continue
+            value = item.get("sceneItemEnabled")
             actual[target] = value if type(value) is bool else None
-        for target in self.targets:
+        applied = []
+        for target in self.remaining_targets:
             self._report(target, visible, actual[target], "requested")
             try:
                 self.request("SetSceneItemEnabled", {
                     "sceneUuid": target.scene_uuid, "sceneItemId": target.item_id,
                     "sceneItemEnabled": visible,
                 })
+            except ObsRequestError as error:
+                # Recheck only an acknowledged not-found response, distinguishing
+                # a deleted item from a lost scene. Never replay the write.
+                if error.kind == "SetSceneItemEnabled" and error.code == 600:
+                    try:
+                        items = self._check_items(self.request(
+                            "GetSceneItemList", {"sceneUuid": target.scene_uuid})["sceneItems"])
+                    except Exception:
+                        self._report(target, visible, None, "validation-failed")
+                        raise
+                    if self._match(items, target) is None:
+                        self._skip(target, visible)
+                        continue
+                self._report(target, visible, actual[target], "failed")
+                raise
             except Exception:
                 self._report(target, visible, actual[target], "failed")
                 raise
             self._report(target, visible, actual[target], "acknowledged")
             self._acknowledged[target] = visible
+            applied.append(target)
+        self.applied_targets = tuple(applied)
 
 
 @dataclass(frozen=True)
@@ -137,7 +199,8 @@ class VisibilitySession:
     new song to optional consumers of the overlay's visibility.
 
     stop() yields control without changing visibility. applied records the last
-    fully acknowledged batch, not live OBS state. On a write failure it becomes
+    fully acknowledged batch of remaining targets, not live OBS state. No targets
+    leaves it unknown. On a transport/write failure it becomes
     unknown; automatic control stops and needs an explicit start(). No claim is
     made that sources can be hidden while OBS is disconnected.
     """
@@ -270,6 +333,7 @@ class VisibilitySession:
         self._reset()
         self._reset_observation_diagnostic()
         self.applied, self.error = None, None
+        self.output.reset()
         self._started_at = self.clock()
         try:
             self.detector.start()
@@ -377,10 +441,10 @@ class VisibilitySession:
         else:
             self._observe_fresh(observation.state, stamp, now)
         desired = self.state is PlayState.PLAYING
-        if desired != self.applied:
+        if desired != self.applied and self.output.remaining_targets:
             try:
                 self.output.set_visible(desired)
-                self.applied = desired
+                self.applied = desired if self.output.applied_targets else None
             except Exception:
                 # Do not report success after partial writes or retry old ON work.
                 self.applied, self.error = None, "obs-apply-failed"

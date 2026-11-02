@@ -111,7 +111,8 @@ class Automation:
         self._config = {"port": 4455, "sceneUuid": None, "captureItemId": None,
                         "captureSourceUuid": None, "targets": []}
         self._state = {"running": False, "state": "unknown", "applied": None,
-                       "error": None, "score": None, "connected": False, "diagnostic": None}
+                       "error": None, "score": None, "connected": False, "diagnostic": None,
+                       "skippedTargets": []}
         self._playback = {"version": 1, "eventId": None, "startedAt": None,
                           "updatedAt": 0.0, "active": False, "targets": []}
         self._playback_ready = False
@@ -154,6 +155,7 @@ class Automation:
             state = {**self._state, **self._playback_status_locked()}
             if state["diagnostic"] is not None:
                 state["diagnostic"] = dict(state["diagnostic"])
+            state["skippedTargets"] = [dict(item) for item in state["skippedTargets"]]
             config = {**self._config, "hasPassword": bool(self._password),
                       "targets": [dict(item) for item in self._config["targets"]]}
             return {"available": self.available, **state, "config": config,
@@ -288,10 +290,11 @@ class Automation:
                 self._connection_failed()
             return {"status": self.status(), "items": items}
 
-    def _validate_items(self, connection, config):
+    def _validate_items(self, connection, config, *, capture_only=False):
         items = self._items(connection, config["sceneUuid"])
         selected = [(config["captureItemId"], config["captureSourceUuid"])]
-        selected += [(item["sceneItemId"], item["sourceUuid"]) for item in config["targets"]]
+        if not capture_only:
+            selected += [(item["sceneItemId"], item["sourceUuid"]) for item in config["targets"]]
         for item_id, source_uuid in selected:
             matches = [item for item in items if item.get("sceneItemId") == item_id]
             if (len(matches) != 1 or matches[0].get("sourceUuid") != source_uuid
@@ -363,7 +366,10 @@ class Automation:
                     raise AutomationError("The gameplay reference could not be loaded.", "template-invalid")
                 raise AutomationError("The gameplay reference is missing.", "template-required")
             try:
-                self._validate_items(connection, config)
+                # Saved optional targets may have been deleted since selection.
+                # The output adapter quarantines them on its first batch; the
+                # original capture and scene must still be valid and visible.
+                self._validate_items(connection, config, capture_only=True)
             except AutomationError:
                 raise
             except Exception:
@@ -387,7 +393,7 @@ class Automation:
             with self._state_lock:
                 self._playback = {"version": 1, "eventId": None, "startedAt": None,
                                   "updatedAt": 0.0, "active": False,
-                                  "targets": [dict(item) for item in config["targets"]]}
+                                  "targets": []}
                 self._playback_ready = False
             try:
                 detector = self.detector_factory(active, config["captureSourceUuid"],
@@ -436,9 +442,16 @@ class Automation:
                                applied=state.applied, error=error or state.error, score=score,
                                diagnostic=(self._diagnostic(session, detector)
                                            if diagnostic is None else diagnostic))
+            self._state["skippedTargets"] = [self._target_identity(target)
+                                             for target in session.output.skipped_targets]
             self._update_playback(session, state, detector, observed)
         if record:
             self._record_transition()
+
+    @staticmethod
+    def _target_identity(target):
+        return {"sceneUuid": target.scene_uuid, "sceneItemId": target.item_id,
+                "sourceUuid": target.source_uuid}
 
     def _update_playback(self, session, state, detector, observed):
         """Publish one optional proof per confirmed exit/entry, under state lock.
@@ -449,6 +462,7 @@ class Automation:
         """
         proof = self._playback
         proof["active"] = False
+        proof["targets"] = [self._target_identity(target) for target in session.output.applied_targets]
         if not observed:
             return
         now = self.wall_clock()
@@ -460,7 +474,7 @@ class Automation:
         stamp, observed_now = session.observation_at, self.clock()
         current_sample = (stamp is not None and math.isfinite(observed_now)
                           and 0 <= observed_now - stamp <= session.max_age)
-        fresh = (state.running and not self._state["error"]
+        fresh = (state.running and bool(proof["targets"]) and not self._state["error"]
                  and getattr(detector, "last_error", None) is None
                  and session.recovery_state is None and session.observation_fresh
                  and session.observation_state is state.state and current_sample)

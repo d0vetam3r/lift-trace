@@ -278,6 +278,51 @@ class AutomationTests(unittest.TestCase):
         self.assertFalse(self.automation.status()["playback"]["active"])
         self.assertEqual(self.automation.status()["playback"]["updatedAt"], first["updatedAt"])
 
+    def test_deleted_camera_does_not_replace_playback_start_and_all_missing_is_inactive(self):
+        _session, _detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        tick(.4, PlayState.PLAYING)
+        first = tick(.6, PlayState.PLAYING)
+        self.assertTrue(first["active"])
+        connection = self.connections[-1]
+        connection.items = [item for item in connection.items if item["sceneItemId"] != 3]
+        # Discover the deletion during the next normal visibility batch.
+        tick(.8, PlayState.UNKNOWN)
+        tick(.9, PlayState.PLAYING)
+        resumed = tick(1.1, PlayState.PLAYING)
+        self.assertTrue(resumed["active"])
+        self.assertEqual((resumed["eventId"], resumed["startedAt"]),
+                         (first["eventId"], first["startedAt"]))
+        self.assertEqual(resumed["targets"], [CONFIG["targets"][0]])
+        self.assertEqual(self.automation.status()["skippedTargets"], [CONFIG["targets"][1]])
+
+        connection.items = [item for item in connection.items if item["sceneItemId"] == 1]
+        tick(1.2, PlayState.UNKNOWN)
+        tick(1.3, PlayState.PLAYING)
+        missing = tick(1.5, PlayState.PLAYING)
+        self.assertFalse(missing["active"])
+        self.assertEqual(missing["targets"], [])
+        self.assertEqual((missing["eventId"], missing["startedAt"]),
+                         (first["eventId"], first["startedAt"]))
+        self.assertTrue(self.automation.status()["running"])
+        self.assertIsNone(self.automation.status()["error"])
+        self.assertIsNone(self.automation.status()["applied"])
+
+    def test_missing_primary_target_is_not_advertised_in_playback_proof(self):
+        _session, _detector, tick = self.playback_session()
+        tick(0, PlayState.NOT_PLAYING)
+        tick(.3, PlayState.NOT_PLAYING)
+        connection = self.connections[-1]
+        connection.items = [item for item in connection.items if item["sceneItemId"] != 2]
+        tick(.4, PlayState.PLAYING)
+        proof = tick(.6, PlayState.PLAYING)
+        self.assertTrue(proof["active"])
+        self.assertEqual(proof["targets"], [CONFIG["targets"][1]])
+        # A consumer bound to the missing primary/overlay target must reject it.
+        self.assertNotIn(CONFIG["targets"][0], proof["targets"])
+        self.assertEqual(self.automation.status()["skippedTargets"], [CONFIG["targets"][0]])
+
     def test_slow_visibility_acknowledgment_cannot_publish_a_fresh_start_from_old_frame(self):
         _session, _detector, tick = self.playback_session()
         tick(0, PlayState.NOT_PLAYING)
@@ -430,8 +475,107 @@ class AutomationTests(unittest.TestCase):
         connection.items[-1]["isGroup"] = False
         connection.items[-1]["sourceUuid"] = "replacement"
         with self.assertRaises(AutomationError):
-            self.automation.start()
+            self.automation.configure(CONFIG)
         self.assertEqual(self.writes(connection), [])
+
+    def test_start_skips_deleted_target_without_rewriting_saved_selection(self):
+        connection = self.ready()
+        saved = (self.root / "automation.json").read_bytes()
+        connection.items = [item for item in connection.items if item["sceneItemId"] != 3]
+        self.automation.start()
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        status = self.automation.status()
+        self.assertTrue(status["connected"])
+        self.assertIsNone(status["error"])
+        self.assertEqual(status["skippedTargets"], [CONFIG["targets"][1]])
+        self.assertEqual(status["config"]["targets"], CONFIG["targets"])
+        status["skippedTargets"][0]["sourceUuid"] = "caller-mutation"
+        status["skippedTargets"].clear()
+        self.assertEqual(self.automation.status()["skippedTargets"], [CONFIG["targets"][1]])
+        self.assertEqual((self.root / "automation.json").read_bytes(), saved)
+        self.assertEqual({item["sceneItemId"] for item in self.writes(connection)}, {2})
+
+    def test_deleted_target_during_play_keeps_worker_and_toggles_survivor(self):
+        connection = self.ready()
+        self.automation.start()
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        worker, detector = self.automation._thread, self.detectors[-1]
+        previous_writes = len(self.writes(connection))
+        connection.items = [item for item in connection.items if item["sceneItemId"] != 3]
+        detector.state = PlayState.NOT_PLAYING
+        self.wait_for(lambda: self.automation.status()["state"] == "not_playing"
+                      and self.automation.status()["applied"] is False)
+        detector.state = PlayState.PLAYING
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        self.assertEqual([(item["sceneItemId"], item["sceneItemEnabled"])
+                          for item in self.writes(connection)[previous_writes:]], [(2, False), (2, True)])
+        self.assertEqual(self.automation.status()["skippedTargets"], [CONFIG["targets"][1]])
+        self.assertTrue(self.automation.status()["running"])
+        self.assertTrue(connection.connected)
+        self.assertIsNone(self.automation.status()["error"])
+        self.assertIs(self.automation._thread, worker)
+        self.assertTrue(worker.is_alive())
+        self.assertFalse(detector.stopped)
+        self.assertEqual(len(self.connections), 1)
+        self.assertEqual(len(self.detectors), 1)
+
+    def test_replaced_target_is_quarantined_until_explicit_restart(self):
+        connection = self.ready()
+        connection.items[-1]["sourceUuid"] = "replacement"
+        self.automation.start()
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        self.assertEqual(self.automation.status()["skippedTargets"], [CONFIG["targets"][1]])
+        self.assertEqual({item["sceneItemId"] for item in self.writes(connection)}, {2})
+        # Even restoration of the exact old identity must not rejoin a live session.
+        connection.items[-1]["sourceUuid"] = "camera"
+        detector = self.detectors[-1]
+        detector.state = PlayState.NOT_PLAYING
+        self.wait_for(lambda: self.automation.status()["state"] == "not_playing"
+                      and self.automation.status()["applied"] is False)
+        detector.state = PlayState.PLAYING
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        self.assertEqual({item["sceneItemId"] for item in self.writes(connection)}, {2})
+        self.automation.stop()
+        previous_writes = len(self.writes(connection))
+        self.automation.start()
+        self.wait_for(lambda: self.automation.status()["applied"] is True)
+        self.assertEqual(self.automation.status()["skippedTargets"], [])
+        self.assertEqual({item["sceneItemId"] for item in self.writes(connection)[previous_writes:]}, {2, 3})
+        self.assertEqual(len(self.connections), 1)
+
+    def test_start_with_all_targets_missing_remains_running_without_claiming_output(self):
+        connection = self.ready()
+        connection.items = [item for item in connection.items if item["sceneItemId"] == 1]
+        self.automation.start()
+        self.wait_for(lambda: self.automation.status().get("skippedTargets") == CONFIG["targets"])
+        status = self.automation.status()
+        self.assertTrue(status["running"])
+        self.assertTrue(status["connected"])
+        self.assertIsNone(status["applied"])
+        self.assertIsNone(status["error"])
+        self.assertFalse(status["playback"]["active"])
+        self.assertIsNone(status["playback"]["eventId"])
+        self.assertEqual(status["playback"]["targets"], [])
+        self.assertEqual(self.writes(connection), [])
+        self.assertTrue(self.automation._thread.is_alive())
+
+    def test_start_still_rejects_missing_replaced_or_hidden_capture(self):
+        connection = self.ready()
+        original = [dict(item) for item in connection.items]
+        for fault in ("missing", "replaced", "hidden"):
+            with self.subTest(fault=fault):
+                connection.items = [dict(item) for item in original]
+                if fault == "missing":
+                    connection.items.pop(0)
+                elif fault == "replaced":
+                    connection.items[0]["sourceUuid"] = "replacement"
+                else:
+                    connection.items[0]["sceneItemEnabled"] = False
+                with self.assertRaises(AutomationError):
+                    self.automation.start()
+                self.assertFalse(self.automation.status()["running"])
+                self.assertEqual(self.writes(connection), [])
+                self.assertEqual(self.detectors, [])
 
     def test_start_requires_template_and_remains_an_explicit_action(self):
         self.automation.connect({"port": 4455})
